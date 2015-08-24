@@ -64,6 +64,14 @@ class CabArchive(object):
 
     def add_file(self, cffile):
         """ Add file to archive """
+
+        # remove old file if already present
+        for tmp in self.files:
+            if tmp.filename == cffile.filename:
+                self.files.remove(tmp)
+                break
+
+        # add object
         self.files.append(cffile)
 
     def _parse_cffile(self, offset):
