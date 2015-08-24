@@ -138,29 +138,39 @@ class CabArchive(object):
 
     def _parse_cfdata(self, offset):
         """ Parse a CFDATA entry """
-        fmt = 'xxxx'    # checksum
+        fmt = 'I'    # checksum
         fmt += 'H'      # compressed bytes
         fmt += 'H'      # uncompressed bytes
         try:
             vals = struct.unpack_from(fmt, self._buf_file, offset)
         except struct.error as e:
             raise CorruptionError(str(e))
-        if not self.is_compressed and vals[0] != vals[1]:
-            raise CorruptionError('Mismatched data %i != %i' % (vals[0], vals[1]))
+        if not self.is_compressed and vals[1] != vals[2]:
+            raise CorruptionError('Mismatched data %i != %i' % (vals[1], vals[2]))
         hdr_sz = struct.calcsize(fmt)
-        newbuf = self._buf_file[offset + hdr_sz:offset + hdr_sz + vals[0]]
+        newbuf = self._buf_file[offset + hdr_sz:offset + hdr_sz + vals[1]]
 
         # decompress Zlib data after removing *another* header...
         if self.is_compressed:
             if newbuf[0] != 'C' or newbuf[1] != 'K':
                 raise CorruptionError('Compression header invalid')
             decompress = zlib.decompressobj(-zlib.MAX_WBITS)
-            newbuf = decompress.decompress(newbuf[2:])
-            newbuf += decompress.flush()
+            buf = decompress.decompress(newbuf[2:])
+            buf += decompress.flush()
+        else:
+            buf = newbuf
 
-        assert len(newbuf) == vals[1]
-        self._buf_data += newbuf
-        return vals[1] + hdr_sz
+        # check checksum
+        if vals[0] != 0:
+            checksum = _checksum_compute(newbuf)
+            hdr = bytearray(struct.pack('HH', len(newbuf), len(buf)))
+            checksum = _checksum_compute(hdr, checksum)
+            if checksum != vals[0]:
+                raise CorruptionError("Got checksum %04x, expected %04x" % (vals[0], checksum))
+
+        assert len(buf) == vals[2]
+        self._buf_data += buf
+        return vals[2] + hdr_sz
 
     def parse(self, buf):
         """ Parse .cab data """
@@ -318,10 +328,8 @@ class CabArchive(object):
             # first do the 'checksum' on the data, then the partial
             # header. slightly crazy, but anyway
             checksum = _checksum_compute(chunk_compressed)
-            hdr_random = bytearray(struct.pack('HH',
-                                               len(chunk_compressed),
-                                               len(chunk)))
-            checksum = _checksum_compute(hdr_random, checksum)
+            hdr = bytearray(struct.pack('HH', len(chunk_compressed), len(chunk)))
+            checksum = _checksum_compute(hdr, checksum)
             data += struct.pack(FMT_CFDATA,
                                 checksum,               # checksum
                                 len(chunk_compressed),  # compressed bytes
