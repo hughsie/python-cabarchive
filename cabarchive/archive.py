@@ -86,8 +86,7 @@ class CabArchive(object):
             filename += filename_c
 
         # add file
-        f = CabFile()
-        f.filename = filename
+        f = CabFile(filename)
         f._date_decode(vals[3])
         f._time_decode(vals[4])
         f._attr_decode(vals[5])

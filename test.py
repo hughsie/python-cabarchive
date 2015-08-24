@@ -36,16 +36,14 @@ def main():
     archive.set_id = 0x0622
 
     # first example
-    cff = cab.CabFile()
-    cff.filename = 'hello.c'
+    cff = cab.CabFile('hello.c')
     cff.contents = '#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Hello, world!\\n");\r\n}\r\n'
     cff.date = datetime.date(1997, 3, 12)
     cff.time = datetime.time(11, 13, 52)
     archive.add_file(cff)
 
     # second example
-    cff = cab.CabFile()
-    cff.filename = 'welcome.c'
+    cff = cab.CabFile('welcome.c')
     cff.contents = '#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Welcome!\\n");\r\n}\r\n\r\n'
     cff.date = datetime.date(1997,3,12)
     cff.time = datetime.time(11, 15, 14)

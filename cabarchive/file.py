@@ -19,12 +19,13 @@
 import datetime
 
 class CabFile(object):
+
     """An object representing a file in a Cab archive """
-    def __init__(self):
-        self.filename = None
-        self.contents = None
-        self.date = None
-        self.time = None
+    def __init__(self, filename, contents=None):
+        self.filename = filename
+        self.contents = contents
+        self.date = datetime.date.today()
+        self.time = datetime.datetime.now().time()
         self.is_readonly = False    # file is read-only
         self.is_hidden = False      # file is hidden
         self.is_system = False      # file is a system file
