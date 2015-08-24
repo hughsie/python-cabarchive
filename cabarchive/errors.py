@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301, USA
 
-from file import CabFile
-from archive import CabArchive
-from errors import CorruptionError, NotSupportedError
+class CorruptionError(Exception):
+    pass
+class NotSupportedError(Exception):
+    pass

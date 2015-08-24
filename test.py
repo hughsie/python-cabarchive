@@ -21,6 +21,13 @@ import datetime
 
 def main():
 
+    # parse junk
+    archive = cab.CabArchive()
+    try:
+        archive.parse('hello')
+    except cab.CorruptionError as e:
+        pass
+
     # parse test files
     for fn in ['data/simple.cab', 'data/compressed.cab']:
         archive = cab.CabArchive()

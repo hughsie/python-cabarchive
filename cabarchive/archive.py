@@ -22,6 +22,7 @@ import zlib
 import datetime
 
 from file import CabFile
+from errors import *
 
 FMT_CFHEADER = '<4sxxxxIxxxxIxxxxBBHHHHH'
 FMT_CFFOLDER = 'IHH'
@@ -82,7 +83,10 @@ class CabArchive(object):
         fmt += 'H'      # date
         fmt += 'H'      # time
         fmt += 'H'      # attribs
-        vals = struct.unpack_from(fmt, self._buf_file, offset)
+        try:
+            vals = struct.unpack_from(fmt, self._buf_file, offset)
+        except struct.error as e:
+            raise CorruptionError(str(e))
 
         # parse filename
         offset += struct.calcsize(fmt)
@@ -100,7 +104,7 @@ class CabArchive(object):
         f._attr_decode(vals[5])
         f.contents = self._buf_data[vals[1]:vals[1] + vals[0]]
         if len(f.contents) != vals[0]:
-            raise RuntimeError('Corruption inside archive')
+            raise CorruptionError('Corruption inside archive')
         self.files.append(f)
 
         # return offset to next entry
@@ -111,7 +115,10 @@ class CabArchive(object):
         fmt = 'I'       # offset to CFDATA
         fmt += 'H'      # number of CFDATA blocks
         fmt += 'H'      # compression type
-        vals = struct.unpack_from(fmt, self._buf_file, offset)
+        try:
+            vals = struct.unpack_from(fmt, self._buf_file, offset)
+        except struct.error as e:
+            raise CorruptionError(str(e))
 
         # the start of CFDATA
         self._off_cfdata = vals[0]
@@ -119,7 +126,7 @@ class CabArchive(object):
         # no data blocks?
         self._nr_blocks = vals[1]
         if self._nr_blocks == 0:
-            raise TypeError('No CFDATA blocks')
+            raise CorruptionError('No CFDATA blocks')
 
         # no compression is supported
         if vals[2] == 0:
@@ -127,23 +134,26 @@ class CabArchive(object):
         elif vals[2] == 1:
             self.is_compressed = True
         else:
-            raise RuntimeError('Compression type not supported')
+            raise NotSupportedError('Compression type not supported')
 
     def _parse_cfdata(self, offset):
         """ Parse a CFDATA entry """
         fmt = 'xxxx'    # checksum
         fmt += 'H'      # compressed bytes
         fmt += 'H'      # uncompressed bytes
-        vals = struct.unpack_from(fmt, self._buf_file, offset)
+        try:
+            vals = struct.unpack_from(fmt, self._buf_file, offset)
+        except struct.error as e:
+            raise CorruptionError(str(e))
         if not self.is_compressed and vals[0] != vals[1]:
-            raise RuntimeError('Mismatched data %i != %i' % (vals[0], vals[1]))
+            raise CorruptionError('Mismatched data %i != %i' % (vals[0], vals[1]))
         hdr_sz = struct.calcsize(fmt)
         newbuf = self._buf_file[offset + hdr_sz:offset + hdr_sz + vals[0]]
 
         # decompress Zlib data after removing *another* header...
         if self.is_compressed:
             if newbuf[0] != 'C' or newbuf[1] != 'K':
-                raise RuntimeError('Compression header invalid')
+                raise CorruptionError('Compression header invalid')
             decompress = zlib.decompressobj(-zlib.MAX_WBITS)
             newbuf = decompress.decompress(newbuf[2:])
             newbuf += decompress.flush()
@@ -175,41 +185,44 @@ class CabArchive(object):
 #        fmt += 'B'      # reserved folder size
 #        fmt += 'B'      # reserved block size
 #        fmt += 'B'      # per-cabinet reserved area
-        vals = struct.unpack_from(fmt, self._buf_file, 0)
+        try:
+            vals = struct.unpack_from(fmt, self._buf_file, 0)
+        except struct.error as e:
+            raise CorruptionError(str(e))
 
         # check magic bytes
         if vals[0] != b'MSCF':
-            raise RuntimeError('Data is not application/vnd.ms-cab-compressed')
+            raise NotSupportedError('Data is not application/vnd.ms-cab-compressed')
 
         # check size matches
         if vals[1] != len(self._buf_file):
-            raise RuntimeError('Cab file internal size does not match data')
+            raise CorruptionError('Cab file internal size does not match data')
 
         # check version
         if vals[4] != 1  or vals[3] != 3:
-            raise RuntimeError('Version %i.%i not supported' % (vals[4], vals[3]))
+            raise NotSupportedError('Version %i.%i not supported' % (vals[4], vals[3]))
 
         # only one folder supported
         if vals[5] != 1:
-            raise RuntimeError('Only one folder supported')
+            raise NotSupportedError('Only one folder supported')
 
         # chained cabs not supported
         if vals[9] != 0:
-            raise RuntimeError('Chained cab file not supported')
+            raise NotSupportedError('Chained cab file not supported')
 
         # verify we actually have data
         nr_files = vals[6]
         if nr_files == 0:
-            raise RuntimeError('The cab file is empty')
+            raise CorruptionError('The cab file is empty')
 
         # verify we got complete data
         off_cffile = vals[2]
         if off_cffile > len(self._buf_file):
-            raise RuntimeError('Cab file corrupt')
+            raise CorruptionError('Cab file corrupt')
 
         # chained cabs not supported
         if vals[7] != 0:
-            raise RuntimeError('Expected header flags to be cleared')
+            raise CorruptionError('Expected header flags to be cleared')
 
         # parse CFFOLDER
         self._parse_cffolder(struct.calcsize(fmt))
