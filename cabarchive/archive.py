@@ -346,3 +346,7 @@ class CabArchive(object):
         """ Saves a cabinet file to disk """
         data = self.save(compressed)
         open(filename, 'wb').write(data)
+
+    def __repr__(self):
+        """ Represent the object as a string """
+        return "<CabArchive [compressed:%i] object %s>" % (self._is_zlib, self.files)
