@@ -42,7 +42,7 @@ def _chunkify(arr, size):
 def _checksum_compute(content, seed=0):
     """ Compute the MSCAB "checksum" """
     csum = seed
-    chunks = _chunkify(content, 4)
+    chunks = _chunkify(bytearray(content), 4)
     for chunk in chunks:
         ul = 0
         for i in range(0, min(len(chunk), 4)):
