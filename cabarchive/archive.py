@@ -61,7 +61,7 @@ class CabArchive(object):
         self._buf_data = bytearray()
         self._nr_blocks = 0
         self._off_cfdata = 0
-        self.is_compressed = False
+        self._is_zlib = False
 
     def add_file(self, cffile):
         """ Add file to archive """
@@ -130,9 +130,9 @@ class CabArchive(object):
 
         # no compression is supported
         if vals[2] == 0:
-            self.is_compressed = False
+            self._is_zlib = False
         elif vals[2] == 1:
-            self.is_compressed = True
+            self._is_zlib = True
         else:
             raise NotSupportedError('Compression type not supported')
 
@@ -145,13 +145,13 @@ class CabArchive(object):
             vals = struct.unpack_from(fmt, self._buf_file, offset)
         except struct.error as e:
             raise CorruptionError(str(e))
-        if not self.is_compressed and vals[1] != vals[2]:
+        if not self._is_zlib and vals[1] != vals[2]:
             raise CorruptionError('Mismatched data %i != %i' % (vals[1], vals[2]))
         hdr_sz = struct.calcsize(fmt)
         newbuf = self._buf_file[offset + hdr_sz:offset + hdr_sz + vals[1]]
 
         # decompress Zlib data after removing *another* header...
-        if self.is_compressed:
+        if self._is_zlib:
             if newbuf[0] != 'C' or newbuf[1] != 'K':
                 raise CorruptionError('Compression header invalid')
             decompress = zlib.decompressobj(-zlib.MAX_WBITS)
@@ -234,6 +234,9 @@ class CabArchive(object):
         if vals[7] != 0:
             raise CorruptionError('Expected header flags to be cleared')
 
+        # read this so we can do round-trip
+        self.set_id = vals[8]
+
         # parse CFFOLDER
         self._parse_cffolder(struct.calcsize(fmt))
 
@@ -260,81 +263,81 @@ class CabArchive(object):
     def save(self, compressed=False):
         """ Returns cabinet file data """
 
-        # FIXME, we have to do the following things:
-        #
-        # * chunkify data and compress early for the correct size in the header
-        # * work out how to invoke the compressor with the previous block state
-        assert not compressed, 'Saving with compression is not (yet) working'
-
         # create linear CFDATA block
         cfdata_linear = bytearray()
         for f in self.files:
             cfdata_linear += f.contents
 
-        # _chunkify
-        cf_data_chunks = _chunkify(cfdata_linear, 0xffff - 8)
+        # _chunkify and compress
+        chunks = _chunkify(cfdata_linear, 0xffff - 8)
+        if compressed:
+            chunks_zlib = []
+            for chunk in chunks:
+                compress = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
+                chunk_zlib = bytearray('CK')
+                chunk_zlib += compress.compress(str(chunk))
+                chunk_zlib += compress.flush()
+                chunks_zlib.append(chunk_zlib)
+        else:
+            chunks_zlib = chunks
 
         # create header
         archive_size = struct.calcsize(FMT_CFHEADER)
         archive_size += struct.calcsize(FMT_CFFOLDER)
         for f in self.files:
             archive_size += struct.calcsize(FMT_CFFILE) + len(f.filename) + 1
-        for chunk in cf_data_chunks:
+        for chunk in chunks_zlib:
             archive_size += struct.calcsize(FMT_CFDATA) + len(chunk)
         offset = struct.calcsize(FMT_CFHEADER)
         offset += struct.calcsize(FMT_CFFOLDER)
         data = struct.pack(FMT_CFHEADER,
-                           'MSCF',                      # signature
-                           archive_size,                # complete size
-                           offset,                      # offset to CFFILE
-                           3, 1,                        # ver minor major
-                           1,                           # no of CFFOLDERs
-                           len(self.files),             # no of CFFILEs
-                           0,                           # flags
-                           self.set_id,                 # setID
-                           0)                           # cnt of cabs in set
+                           'MSCF',                  # signature
+                           archive_size,            # complete size
+                           offset,                  # offset to CFFILE
+                           3, 1,                    # ver minor major
+                           1,                       # no of CFFOLDERs
+                           len(self.files),         # no of CFFILEs
+                           0,                       # flags
+                           self.set_id,             # setID
+                           0)                       # cnt of cabs in set
 
         # create folder
         for f in self.files:
             offset += struct.calcsize(FMT_CFFILE)
             offset += len(f.filename) + 1
         data += struct.pack(FMT_CFFOLDER,
-                            offset,                     # offset to CFDATA
-                            len(cf_data_chunks),        # number of CFDATA blocks
-                            compressed)                 # compression type
+                            offset,                 # offset to CFDATA
+                            len(chunks),            # number of CFDATA blocks
+                            compressed)             # compression type
 
         # create each CFFILE
         index_into = 0
         for f in self.files:
             data += struct.pack(FMT_CFFILE,
-                                len(f.contents),        # uncompressed size
-                                index_into,             # uncompressed offset
-                                0,                      # index into CFFOLDER
-                                f._date_encode(),       # date
-                                f._time_encode(),       # time
-                                f._attr_encode())       # attribs
+                                len(f.contents),    # uncompressed size
+                                index_into,         # uncompressed offset
+                                0,                  # index into CFFOLDER
+                                f._date_encode(),   # date
+                                f._time_encode(),   # time
+                                f._attr_encode())   # attribs
             data += f.filename + b'\0'
             index_into += len(f.contents)
 
         # create each CFDATA
-        for chunk in cf_data_chunks:
-
-            # compress
-            if compressed:
-                chunk_compressed = bytearray('CK') + zlib.compress(str(chunk))
-            else:
-                chunk_compressed = chunk
+        for i in range(0, len(chunks)):
+            chunk = chunks[i]
+            chunk_zlib = chunks_zlib[i]
 
             # first do the 'checksum' on the data, then the partial
             # header. slightly crazy, but anyway
-            checksum = _checksum_compute(chunk_compressed)
-            hdr = bytearray(struct.pack('HH', len(chunk_compressed), len(chunk)))
+            checksum = _checksum_compute(chunk_zlib)
+            hdr = bytearray(struct.pack('HH', len(chunk_zlib), len(chunk)))
             checksum = _checksum_compute(hdr, checksum)
             data += struct.pack(FMT_CFDATA,
-                                checksum,               # checksum
-                                len(chunk_compressed),  # compressed bytes
-                                len(chunk))             # uncompressed bytes
-            data += chunk_compressed
+                                checksum,           # checksum
+                                len(chunk_zlib),    # compressed bytes
+                                len(chunk))         # uncompressed bytes
+            data += chunk_zlib
 
         # return bytearray
         return data

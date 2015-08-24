@@ -25,6 +25,19 @@ def check_archive(filename):
     rc = subprocess.call(argv)
     assert rc == 0
 
+def check_range(data, expected):
+    assert data
+    assert expected
+    failures = 0
+    if len(data) != len(expected):
+        print "different sizes, got %i expected %i", (len(data), len(expected))
+        failures += 1
+    for i in range(0, len(data)):
+        if data[i] != expected[i]:
+            print "@0x%02x got 0x%02x expected 0x%02x" % (i, data[i], expected[i])
+            failures += 1
+    assert failures == 0
+
 def main():
 
     # parse junk
@@ -37,12 +50,21 @@ def main():
     # parse test files
     for fn in ['data/simple.cab', 'data/compressed.cab']:
         arc = cab.CabArchive()
-        arc.parse_file(fn)
+        print 'Parsing:', fn
+        old = open(fn, 'rb').read()
+        arc.parse(old)
         assert len(arc.files) == 1
         cff = arc.files[0]
         assert cff.filename == 'test.txt', cff.filename
         assert cff.contents == 'test'
         assert cff.date.year == 2015
+
+        # make sure we don't modify on roundtrip
+        compressed = False
+        if fn.find('compressed') != -1:
+            compressed = True
+        new = arc.save(compressed)
+        check_range(bytearray(new), bytearray(old))
 
     # create new archive
     arc = cab.CabArchive()
@@ -83,12 +105,7 @@ def main():
                "\x69\x6E\x28\x76\x6F\x69\x64\x29\x0D\x0A\x7B\x0D\x0A\x20\x20\x20" \
                "\x20\x70\x72\x69\x6E\x74\x66\x28\x22\x57\x65\x6C\x63\x6F\x6D\x65" \
                "\x21\x5C\x6E\x22\x29\x3B\x0D\x0A\x7D\x0D\x0A\x0D\x0A"
-    failures = 0
-    for i in range(0, len(data)):
-        if data[i] != expected[i]:
-            print "@0x%02x got %02x expected %02x" % (i, ord(data[i]), ord(expected[i]))
-            failures += 1
-    assert failures == 0
+    check_range(bytearray(data), bytearray(expected))
 
     # use cabextract to test validity
     argv = ['cabextract', '--test', '/tmp/test.cab']
@@ -103,7 +120,7 @@ def main():
     arc.add_file(cab.CabFile('test.inf', '$CHICAGO$'))
 
     # save with compression
-    arc.save_file('/tmp/test.cab', False)
+    arc.save_file('/tmp/test.cab', True)
 
     # use cabextract to test validity
     check_archive('/tmp/test.cab')
