@@ -25,9 +25,9 @@ from file import CabFile
 from errors import *
 
 FMT_CFHEADER = '<4sxxxxIxxxxIxxxxBBHHHHH'
-FMT_CFFOLDER = 'IHH'
-FMT_CFFILE = 'IIHHHH'
-FMT_CFDATA = 'IHH'
+FMT_CFFOLDER = '<IHH'
+FMT_CFFILE = '<IIHHHH'
+FMT_CFDATA = '<IHH'
 
 def _chunkify(arr, size):
     """ Split up a bytestream into chunks """
@@ -77,7 +77,7 @@ class CabArchive(object):
 
     def _parse_cffile(self, offset):
         """ Parse a CFFILE entry """
-        fmt = 'I'       # uncompressed size
+        fmt = '<I'       # uncompressed size
         fmt += 'I'      # uncompressed offset of this file in the folder
         fmt += 'H'      # index into the CFFOLDER area
         fmt += 'H'      # date
@@ -112,7 +112,7 @@ class CabArchive(object):
 
     def _parse_cffolder(self, offset):
         """ Parse a CFFOLDER entry """
-        fmt = 'I'       # offset to CFDATA
+        fmt = '<I'       # offset to CFDATA
         fmt += 'H'      # number of CFDATA blocks
         fmt += 'H'      # compression type
         try:
@@ -138,7 +138,7 @@ class CabArchive(object):
 
     def _parse_cfdata(self, offset):
         """ Parse a CFDATA entry """
-        fmt = 'I'    # checksum
+        fmt = '<I'    # checksum
         fmt += 'H'      # compressed bytes
         fmt += 'H'      # uncompressed bytes
         try:
@@ -163,7 +163,7 @@ class CabArchive(object):
         # check checksum
         if vals[0] != 0:
             checksum = _checksum_compute(newbuf)
-            hdr = bytearray(struct.pack('HH', len(newbuf), len(buf)))
+            hdr = bytearray(struct.pack('<HH', len(newbuf), len(buf)))
             checksum = _checksum_compute(hdr, checksum)
             if checksum != vals[0]:
                 raise CorruptionError("Got checksum %04x, expected %04x" % (vals[0], checksum))
@@ -331,7 +331,7 @@ class CabArchive(object):
             # first do the 'checksum' on the data, then the partial
             # header. slightly crazy, but anyway
             checksum = _checksum_compute(chunk_zlib)
-            hdr = bytearray(struct.pack('HH', len(chunk_zlib), len(chunk)))
+            hdr = bytearray(struct.pack('<HH', len(chunk_zlib), len(chunk)))
             checksum = _checksum_compute(hdr, checksum)
             data += struct.pack(FMT_CFDATA,
                                 checksum,           # checksum
