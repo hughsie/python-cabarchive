@@ -18,46 +18,52 @@
 
 import cabarchive as cab
 import datetime
+import subprocess
+
+def check_archive(filename):
+    argv = ['cabextract', '--test', '/tmp/test.cab']
+    rc = subprocess.call(argv)
+    assert rc == 0
 
 def main():
 
     # parse junk
-    archive = cab.CabArchive()
+    arc = cab.CabArchive()
     try:
-        archive.parse('hello')
+        arc.parse('hello')
     except cab.CorruptionError as e:
         pass
 
     # parse test files
     for fn in ['data/simple.cab', 'data/compressed.cab']:
-        archive = cab.CabArchive()
-        archive.parse_file(fn)
-        assert len(archive.files) == 1
-        cff = archive.files[0]
+        arc = cab.CabArchive()
+        arc.parse_file(fn)
+        assert len(arc.files) == 1
+        cff = arc.files[0]
         assert cff.filename == 'test.txt', cff.filename
         assert cff.contents == 'test'
         assert cff.date.year == 2015
 
     # create new archive
-    archive = cab.CabArchive()
-    archive.set_id = 0x0622
+    arc = cab.CabArchive()
+    arc.set_id = 0x0622
 
     # first example
     cff = cab.CabFile('hello.c')
     cff.contents = '#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Hello, world!\\n");\r\n}\r\n'
     cff.date = datetime.date(1997, 3, 12)
     cff.time = datetime.time(11, 13, 52)
-    archive.add_file(cff)
+    arc.add_file(cff)
 
     # second example
     cff = cab.CabFile('welcome.c')
     cff.contents = '#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Welcome!\\n");\r\n}\r\n\r\n'
     cff.date = datetime.date(1997,3,12)
     cff.time = datetime.time(11, 15, 14)
-    archive.add_file(cff)
+    arc.add_file(cff)
 
     # save file
-    archive.save_file('/tmp/test.cab')
+    arc.save_file('/tmp/test.cab')
 
     # verify
     data = open('/tmp/test.cab').read()
@@ -84,9 +90,23 @@ def main():
             failures += 1
     assert failures == 0
 
+    # use cabextract to test validity
+    argv = ['cabextract', '--test', '/tmp/test.cab']
+    rc = subprocess.call(argv)
+    assert rc == 0
+
     # check we can parse what we just created
-    archive = cab.CabArchive()
-    archive.parse_file('/tmp/test.cab')
+    arc = cab.CabArchive()
+    arc.parse_file('/tmp/test.cab')
+
+    # add an extra file
+    arc.add_file(cab.CabFile('test.inf', '$CHICAGO$'))
+
+    # save with compression
+    arc.save_file('/tmp/test.cab', False)
+
+    # use cabextract to test validity
+    check_archive('/tmp/test.cab')
 
 if __name__ == "__main__":
     main()
