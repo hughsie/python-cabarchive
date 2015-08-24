@@ -268,9 +268,9 @@ class CabArchive(object):
         for f in self.files:
             cfdata_linear += f.contents
 
-        # _chunkify and compress
-        chunks = _chunkify(cfdata_linear, 0xffff - 8)
+        # _chunkify and compress (leave some bytes for uncompressable data)
         if compressed:
+            chunks = _chunkify(cfdata_linear, 0xffff - 0x800)
             chunks_zlib = []
             for chunk in chunks:
                 compress = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
@@ -279,6 +279,7 @@ class CabArchive(object):
                 chunk_zlib += compress.flush()
                 chunks_zlib.append(chunk_zlib)
         else:
+            chunks = _chunkify(cfdata_linear, 0xffff)
             chunks_zlib = chunks
 
         # create header
