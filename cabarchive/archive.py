@@ -234,8 +234,8 @@ class CabArchive(object):
                 return cf
         return None
 
-    def save_file(self, filename, compressed=False):
-        """ Saves a cabinet file """
+    def save(self, compressed=False):
+        """ Returns cabinet file data """
 
         # create linear CFDATA block
         cfdata_linear = bytearray()
@@ -309,5 +309,10 @@ class CabArchive(object):
                                 len(chunk))             # uncompressed bytes
             data += chunk
 
-        # write file
+        # return bytearray
+        return data
+
+    def save_file(self, filename, compressed=False):
+        """ Saves a cabinet file to disk """
+        data = self.save(compressed)
         open(filename, 'wb').write(data)
