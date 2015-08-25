@@ -18,6 +18,10 @@
 
 import datetime
 
+def _is_ascii(text):
+    """ Check if a string is ASCII only """
+    return all(ord(c) < 128 for c in text)
+
 class CabFile(object):
 
     """An object representing a file in a Cab archive """
@@ -31,7 +35,7 @@ class CabFile(object):
         self.is_system = False      # file is a system file
         self.is_arch = True         # file modified since last backup
         self.is_exec = False        # file is executable
-        self.is_name_utf8 = False   # filename is UTF-8
+        self.is_name_utf8 = not _is_ascii(filename)
 
     def _attr_encode(self):
         """ Get attributes on the file """
