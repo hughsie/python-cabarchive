@@ -32,21 +32,27 @@ FMT_CFDATA = '<IHH'
 def _chunkify(arr, size):
     """ Split up a bytestream into chunks """
     arrs = []
-    while len(arr) > size:
-        pice = arr[:size]
-        arrs.append(pice)
-        arr = arr[size:]
-    arrs.append(arr)
+    for i in range(0, len(arr), size):
+        chunk = bytearray(arr[i:i+size])
+        arrs.append(chunk)
     return arrs
 
 def _checksum_compute(content, seed=0):
-    """ Compute the MSCAB "checksum" """
+    """ Compute the MS cabinet checksum """
     csum = seed
-    chunks = _chunkify(bytearray(content), 4)
+    chunks = _chunkify(content, 4)
     for chunk in chunks:
-        ul = 0
-        for i in range(0, min(len(chunk), 4)):
-            ul += chunk[i] << (8 * i)
+        if len(chunk) == 4:
+            ul = chunk[0]
+            ul |= chunk[1] << 8
+            ul |= chunk[2] << 16
+            ul |= chunk[3] << 24
+        else:
+            # WTF: I can only assume this is a typo from the original
+            # author of the cabinet file specification
+            ul = 0
+            for i in range(len(chunk)):
+                ul |= chunk[i] << (8 * (2 - i))
         csum ^= ul
     return csum
 

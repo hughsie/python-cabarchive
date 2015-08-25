@@ -19,6 +19,7 @@
 import cabarchive as cab
 import datetime
 import subprocess
+import time
 
 def check_archive(filename):
     argv = ['cabextract', '--test', '/tmp/test.cab']
@@ -47,6 +48,18 @@ def main():
     except cab.CorruptionError as e:
         pass
 
+    # test checksum function
+    csum = cab.archive._checksum_compute('hello123')
+    assert csum == 0x5f5e5407, '0x%04x' % csum
+    csum = cab.archive._checksum_compute('hello')
+    assert csum == 0x6c036568, '0x%04x' % csum
+
+    # measure speed
+    data = open('data/random.bin').read()
+    start = time.time()
+    csum = cab.archive._checksum_compute(data)
+    print "profile checksum: %fms" % ((time.time() - start) * 1000)
+
     # parse test files
     for fn in ['data/simple.cab', 'data/compressed.cab']:
         arc = cab.CabArchive()
@@ -56,7 +69,8 @@ def main():
         assert len(arc.files) == 1
         cff = arc.files[0]
         assert cff.filename == 'test.txt', cff.filename
-        assert cff.contents == 'test'
+        assert cff.contents == 'test123'
+        assert len(cff.contents) == 7, "Expected 7, got %i" % len(cff.contents)
         assert cff.date.year == 2015
 
         # make sure we don't modify on roundtrip
