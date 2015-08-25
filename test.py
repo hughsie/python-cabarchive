@@ -64,7 +64,10 @@ def main():
     print "profile checksum: %fms" % ((time.time() - start) * 1000)
 
     # parse test files
-    for fn in ['data/simple.cab', 'data/compressed.cab', 'data/large.cab']:
+    for fn in ['data/simple.cab',
+               'data/compressed.cab',
+               'data/large.cab',
+               'data/large-compressed.cab']:
         arc = cab.CabArchive()
         print 'Parsing:', fn
         old = open(fn, 'rb').read()
