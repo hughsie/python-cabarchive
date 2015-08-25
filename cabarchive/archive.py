@@ -50,9 +50,12 @@ def _checksum_compute(content, seed=0):
         else:
             # WTF: I can only assume this is a typo from the original
             # author of the cabinet file specification
-            ul = 0
-            for i in range(len(chunk)):
-                ul |= chunk[i] << (8 * (2 - i))
+            if len(chunk) == 3:
+                ul = (chunk[0] << 16) | (chunk[1] << 8) | chunk[2]
+            elif len(chunk) == 2:
+                ul = (chunk[0] << 8) | chunk[1]
+            elif len(chunk) == 1:
+                ul = chunk[0]
         csum ^= ul
     return csum
 

@@ -52,7 +52,7 @@ def main():
     csum = cab.archive._checksum_compute('hello123')
     assert csum == 0x5f5e5407, '0x%04x' % csum
     csum = cab.archive._checksum_compute('hello')
-    assert csum == 0x6c036568, '0x%04x' % csum
+    assert csum == 0x6c6c6507, '0x%04x' % csum
 
     # measure speed
     data = open('data/random.bin').read()
