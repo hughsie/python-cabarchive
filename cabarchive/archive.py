@@ -179,7 +179,7 @@ class CabArchive(object):
 
         assert len(buf) == vals[2]
         self._buf_data += buf
-        return vals[2] + hdr_sz
+        return vals[1] + hdr_sz
 
     def parse(self, buf):
         """ Parse .cab data """
@@ -277,9 +277,9 @@ class CabArchive(object):
         for f in self.files:
             cfdata_linear += f.contents
 
-        # _chunkify and compress (leave some bytes for uncompressable data)
+        # _chunkify and compress with a fixed size
+        chunks = _chunkify(cfdata_linear, 0x8000)
         if compressed:
-            chunks = _chunkify(cfdata_linear, 0xffff - 0x800)
             chunks_zlib = []
             for chunk in chunks:
                 compress = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
@@ -288,7 +288,6 @@ class CabArchive(object):
                 chunk_zlib += compress.flush()
                 chunks_zlib.append(chunk_zlib)
         else:
-            chunks = _chunkify(cfdata_linear, 0x8000)
             chunks_zlib = chunks
 
         # create header
