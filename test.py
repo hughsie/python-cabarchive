@@ -1,4 +1,6 @@
 #!/usr/bin/python2
+# -*- coding: utf-8 -*-
+#
 # Copyright (C) 2015 Richard Hughes <richard@hughsie.com>
 #
 # This library is free software; you can redistribute it and/or
@@ -66,6 +68,7 @@ def main():
     # parse test files
     for fn in ['data/simple.cab',
                'data/compressed.cab',
+               'data/utf8.cab',
                'data/large.cab',
                'data/large-compressed.cab']:
         arc = cab.CabArchive()
@@ -76,8 +79,14 @@ def main():
         if arc.find_file("*.txt"):
             cff = arc.files[0]
             assert cff.filename == 'test.txt', cff.filename
-            assert cff.contents == 'test123'
+            assert cff.contents == 'test123', cff.contents
             assert len(cff.contents) == 7, "Expected 7, got %i" % len(cff.contents)
+            assert cff.date.year == 2015
+        elif arc.find_file("*.dat"):
+            cff = arc.files[0]
+            assert cff.filename == 'tést.dat', cff.filename
+            assert cff.contents == 'tést123', cff.contents
+            assert len(cff.contents) == 8, "Expected 8, got %i" % len(cff.contents)
             assert cff.date.year == 2015
         else:
             cff = arc.files[0]
