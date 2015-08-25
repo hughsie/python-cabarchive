@@ -31,13 +31,16 @@ def check_range(data, expected):
     assert expected
     failures = 0
     if len(data) != len(expected):
-        print "different sizes, got %i expected %i", (len(data), len(expected))
+        print "different sizes, got %i expected %i" % (len(data), len(expected))
         failures += 1
     for i in range(0, len(data)):
         if data[i] != expected[i]:
             print "@0x%02x got 0x%02x expected 0x%02x" % (i, data[i], expected[i])
             failures += 1
-    assert failures == 0
+            if failures > 10:
+                print "More than 10 failures, giving up..."
+                break
+    assert failures == 0, "Data is not the same"
 
 def main():
 
@@ -61,17 +64,23 @@ def main():
     print "profile checksum: %fms" % ((time.time() - start) * 1000)
 
     # parse test files
-    for fn in ['data/simple.cab', 'data/compressed.cab']:
+    for fn in ['data/simple.cab', 'data/compressed.cab', 'data/large.cab']:
         arc = cab.CabArchive()
         print 'Parsing:', fn
         old = open(fn, 'rb').read()
         arc.parse(old)
         assert len(arc.files) == 1
-        cff = arc.files[0]
-        assert cff.filename == 'test.txt', cff.filename
-        assert cff.contents == 'test123'
-        assert len(cff.contents) == 7, "Expected 7, got %i" % len(cff.contents)
-        assert cff.date.year == 2015
+        if arc.find_file("*.txt"):
+            cff = arc.files[0]
+            assert cff.filename == 'test.txt', cff.filename
+            assert cff.contents == 'test123'
+            assert len(cff.contents) == 7, "Expected 7, got %i" % len(cff.contents)
+            assert cff.date.year == 2015
+        else:
+            cff = arc.files[0]
+            assert cff.filename == 'random.bin', cff.filename
+            assert len(cff.contents) == 0xfffff, "Expected 1 Mb, got %i" % len(cff.contents)
+            assert cff.date.year == 2015
 
         # make sure we don't modify on roundtrip
         compressed = False

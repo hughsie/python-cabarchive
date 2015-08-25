@@ -288,7 +288,7 @@ class CabArchive(object):
                 chunk_zlib += compress.flush()
                 chunks_zlib.append(chunk_zlib)
         else:
-            chunks = _chunkify(cfdata_linear, 0xffff)
+            chunks = _chunkify(cfdata_linear, 0x8000)
             chunks_zlib = chunks
 
         # create header
