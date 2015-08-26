@@ -1,4 +1,6 @@
 #!/usr/bin/python2
+# -*- coding: utf-8 -*-
+#
 # Copyright (C) 2015 Richard Hughes <richard@hughsie.com>
 #
 # This library is free software; you can redistribute it and/or
