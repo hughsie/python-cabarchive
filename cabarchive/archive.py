@@ -18,6 +18,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301, USA
 
+import os
 import struct
 import fnmatch
 import zlib
@@ -96,6 +97,10 @@ class CabArchive(object):
         except struct.error as e:
             raise CorruptionError(str(e))
 
+        # debugging
+        if os.getenv('PYTHON_CABARCHIVE_DEBUG'):
+            print "CFFILE", vals
+
         # parse filename
         offset += struct.calcsize(fmt)
         filename = ''
@@ -129,6 +134,10 @@ class CabArchive(object):
         except struct.error as e:
             raise CorruptionError(str(e))
 
+        # debugging
+        if os.getenv('PYTHON_CABARCHIVE_DEBUG'):
+            print "CFFOLDER", vals
+
         # no data blocks?
         if vals[1] == 0:
             raise CorruptionError('No CFDATA blocks')
@@ -156,6 +165,9 @@ class CabArchive(object):
             vals = struct.unpack_from(fmt, self._buf_file, offset)
         except struct.error as e:
             raise CorruptionError(str(e))
+        # debugging
+        if os.getenv('PYTHON_CABARCHIVE_DEBUG'):
+            print "CFDATA", vals
         if not is_zlib and vals[1] != vals[2]:
             raise CorruptionError('Mismatched data %i != %i' % (vals[1], vals[2]))
         hdr_sz = struct.calcsize(fmt)
@@ -213,6 +225,10 @@ class CabArchive(object):
             vals = struct.unpack_from(fmt, self._buf_file, 0)
         except struct.error as e:
             raise CorruptionError(str(e))
+
+        # debugging
+        if os.getenv('PYTHON_CABARCHIVE_DEBUG'):
+            print "CFHEADER", vals
 
         # check magic bytes
         if vals[0] != b'MSCF':
