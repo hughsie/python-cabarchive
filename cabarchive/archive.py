@@ -69,10 +69,7 @@ class CabArchive(object):
         self.files = []
         self.set_id = 0
         self._buf_file = None
-        self._buf_data = bytearray()
-        self._nr_blocks = 0
-        self._off_cfdata = 0
-        self._is_zlib = False
+        self._folder_data = []
 
     def add_file(self, cffile):
         """ Add file to archive """
@@ -88,7 +85,7 @@ class CabArchive(object):
 
     def _parse_cffile(self, offset):
         """ Parse a CFFILE entry """
-        fmt = '<I'       # uncompressed size
+        fmt = '<I'      # uncompressed size
         fmt += 'I'      # uncompressed offset of this file in the folder
         fmt += 'H'      # index into the CFFOLDER area
         fmt += 'H'      # date
@@ -113,17 +110,18 @@ class CabArchive(object):
         f._date_decode(vals[3])
         f._time_decode(vals[4])
         f._attr_decode(vals[5])
-        f.contents = self._buf_data[vals[1]:vals[1] + vals[0]]
+        f.contents = self._folder_data[vals[2]][vals[1]:vals[1] + vals[0]]
         if len(f.contents) != vals[0]:
-            raise CorruptionError('Corruption inside archive')
+            raise CorruptionError("Corruption inside archive, %s is size %i but "
+                                  "expected size %i" % (filename, len(f.contents), vals[0]))
         self.files.append(f)
 
         # return offset to next entry
         return 16 + len(filename) + 1
 
-    def _parse_cffolder(self, offset):
+    def _parse_cffolder(self, idx, offset):
         """ Parse a CFFOLDER entry """
-        fmt = '<I'       # offset to CFDATA
+        fmt = '<I'      # offset to CFDATA
         fmt += 'H'      # number of CFDATA blocks
         fmt += 'H'      # compression type
         try:
@@ -131,43 +129,48 @@ class CabArchive(object):
         except struct.error as e:
             raise CorruptionError(str(e))
 
-        # the start of CFDATA
-        self._off_cfdata = vals[0]
-
         # no data blocks?
-        self._nr_blocks = vals[1]
-        if self._nr_blocks == 0:
+        if vals[1] == 0:
             raise CorruptionError('No CFDATA blocks')
 
         # no compression is supported
         if vals[2] == 0:
-            self._is_zlib = False
+            is_zlib = False
         elif vals[2] == 1:
-            self._is_zlib = True
+            is_zlib = True
         else:
             raise NotSupportedError('Compression type not supported')
 
-    def _parse_cfdata(self, offset):
+        # parse CDATA
+        self._folder_data.append(bytearray())
+        offset = vals[0]
+        for i in range(vals[1]):
+            offset += self._parse_cfdata(idx, offset, is_zlib)
+
+    def _parse_cfdata(self, idx, offset, is_zlib):
         """ Parse a CFDATA entry """
-        fmt = '<I'    # checksum
+        fmt = '<I'      # checksum
         fmt += 'H'      # compressed bytes
         fmt += 'H'      # uncompressed bytes
         try:
             vals = struct.unpack_from(fmt, self._buf_file, offset)
         except struct.error as e:
             raise CorruptionError(str(e))
-        if not self._is_zlib and vals[1] != vals[2]:
+        if not is_zlib and vals[1] != vals[2]:
             raise CorruptionError('Mismatched data %i != %i' % (vals[1], vals[2]))
         hdr_sz = struct.calcsize(fmt)
         newbuf = self._buf_file[offset + hdr_sz:offset + hdr_sz + vals[1]]
 
         # decompress Zlib data after removing *another* header...
-        if self._is_zlib:
+        if is_zlib:
             if newbuf[0] != 'C' or newbuf[1] != 'K':
                 raise CorruptionError('Compression header invalid')
             decompress = zlib.decompressobj(-zlib.MAX_WBITS)
-            buf = decompress.decompress(newbuf[2:])
-            buf += decompress.flush()
+            try:
+                buf = decompress.decompress(newbuf[2:])
+                buf += decompress.flush()
+            except zlib.error as e:
+                raise CorruptionError('Failed to decompress: ' + str(e))
         else:
             buf = newbuf
 
@@ -180,7 +183,7 @@ class CabArchive(object):
                 raise CorruptionError("Got checksum %04x, expected %04x" % (vals[0], checksum))
 
         assert len(buf) == vals[2]
-        self._buf_data += buf
+        self._folder_data[idx] += buf
         return vals[1] + hdr_sz
 
     def parse(self, buf):
@@ -223,10 +226,6 @@ class CabArchive(object):
         if vals[4] != 1  or vals[3] != 3:
             raise NotSupportedError('Version %i.%i not supported' % (vals[4], vals[3]))
 
-        # only one folder supported
-        if vals[5] != 1:
-            raise NotSupportedError('Only one folder supported')
-
         # chained cabs not supported
         if vals[9] != 0:
             raise NotSupportedError('Chained cab file not supported')
@@ -249,12 +248,10 @@ class CabArchive(object):
         self.set_id = vals[8]
 
         # parse CFFOLDER
-        self._parse_cffolder(struct.calcsize(fmt))
-
-        # parse CDATA
-        offset = self._off_cfdata
-        for i in range(0, self._nr_blocks):
-            offset += self._parse_cfdata(offset)
+        offset = struct.calcsize(fmt)
+        for i in range(vals[5]):
+            self._parse_cffolder(i, offset)
+            offset += struct.calcsize(FMT_CFFOLDER)
 
         # parse CFFILEs
         for i in range(0, nr_files):
@@ -360,4 +357,4 @@ class CabArchive(object):
 
     def __repr__(self):
         """ Represent the object as a string """
-        return "<CabArchive [compressed:%i] object %s>" % (self._is_zlib, self.files)
+        return "<CabArchive object %s>" % self.files

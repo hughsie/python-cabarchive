@@ -160,5 +160,17 @@ def main():
     # use cabextract to test validity
     check_archive('/tmp/test.cab')
 
+    # open a folder with multiple folders
+    for fn in ['data/multi-folder.cab', 'data/multi-folder-compressed.cab']:
+        arc = cab.CabArchive()
+        print 'Parsing:', fn
+        old = open(fn, 'rb').read()
+        arc.parse(old)
+        assert len(arc.files) == 2, len(arc.files)
+
+        cff = arc.find_file("*.txt")
+        #assert cff.filename == 'test\test.txt', "got '%s'" % cff.filename
+        assert cff.contents == 'test123', cff.contents
+
 if __name__ == "__main__":
     main()

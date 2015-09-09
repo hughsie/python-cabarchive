@@ -1,0 +1,9 @@
+.OPTION EXPLICIT
+.Set CabinetNameTemplate=multi-folder.cab
+.Set Cabinet=on
+.Set Compress=off
+.Set MaxDiskSize=0
+.set DiskDirectoryTemplate=.
+.set DestinationDir=test
+"example.jpg"
+"test.txt"
