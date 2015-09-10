@@ -71,6 +71,7 @@ class CabArchive(object):
         self.set_id = 0
         self._buf_file = None
         self._folder_data = []
+        self._is_multi_folder = False
 
     def add_file(self, cffile):
         """ Add file to archive """
@@ -149,6 +150,11 @@ class CabArchive(object):
             is_zlib = True
         else:
             raise NotSupportedError('Compression type not supported')
+
+        # not supported
+        if is_zlib and self._is_multi_folder:
+            raise NotSupportedError("Compression unsupported in multi-folder archive: "
+                                    "set FolderSizeThreshold=0 in the .ddf file")
 
         # parse CDATA
         self._folder_data.append(bytearray())
@@ -262,6 +268,10 @@ class CabArchive(object):
 
         # read this so we can do round-trip
         self.set_id = vals[8]
+
+        # we don't support compressed folders in multi-folder archives
+        if vals[5] > 1:
+            self._is_multi_folder = True
 
         # parse CFFOLDER
         offset = struct.calcsize(fmt)

@@ -163,16 +163,21 @@ def main():
     check_archive('/tmp/test.cab')
 
     # open a folder with multiple folders
-    for fn in ['data/multi-folder.cab', 'data/multi-folder-compressed.cab']:
+    for fn in ['data/multi-folder.cab', 'data/ddf-fixed.cab']:
         arc = cab.CabArchive()
         print 'Parsing:', fn
         old = open(fn, 'rb').read()
         arc.parse(old)
         assert len(arc.files) == 2, len(arc.files)
-
         cff = arc.find_file("*.txt")
-        #assert cff.filename == 'test\test.txt', "got '%s'" % cff.filename
         assert cff.contents == 'test123', cff.contents
+
+    # parse junk
+    arc = cab.CabArchive()
+    try:
+        arc.parse_file('data/multi-folder-compressed.cab')
+    except cab.NotSupportedError as e:
+        pass
 
 if __name__ == "__main__":
     main()
