@@ -22,6 +22,7 @@ import cabarchive as cab
 import datetime
 import subprocess
 import time
+import hashlib
 
 def check_archive(filename):
     argv = ['cabextract', '--test', '/tmp/test.cab']
@@ -92,6 +93,7 @@ def main():
             cff = arc.files[0]
             assert cff.filename == 'random.bin', cff.filename
             assert len(cff.contents) == 0xfffff, "Expected 1 Mb, got %i" % len(cff.contents)
+            assert hashlib.sha1(cff.contents).hexdigest() == '8497fe89c41871e3cbd7955e13321e056dfbd170', "SHA hash incorrect"
             assert cff.date.year == 2015
 
         # make sure we don't modify on roundtrip
