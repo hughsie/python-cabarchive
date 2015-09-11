@@ -54,6 +54,14 @@ def main():
     except cab.CorruptionError as e:
         pass
 
+    # parse junk
+    arc = cab.CabArchive()
+    arc.set_decompressor('cabextract')
+    try:
+        arc.parse('hello')
+    except cab.CorruptionError as e:
+        pass
+
     # test checksum function
     csum = cab.archive._checksum_compute('hello123')
     assert csum == 0x5f5e5407, '0x%04x' % csum
