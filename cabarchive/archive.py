@@ -348,6 +348,14 @@ class CabArchive(object):
                 return cf
         return None
 
+    def find_files(self, glob):
+        """ Gets files from the archive using a glob """
+        arr = []
+        for cf in self.files:
+            if fnmatch.fnmatch(cf.filename, glob):
+                arr.append(cf)
+        return arr
+
     def save(self, compressed=False):
         """ Returns cabinet file data """
 
