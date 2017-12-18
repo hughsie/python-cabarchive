@@ -217,7 +217,7 @@ class CabArchive(object):
             hdr = bytearray(struct.pack('<HH', len(newbuf), len(buf)))
             checksum = _checksum_compute(hdr, checksum)
             if checksum != vals[0]:
-                raise CorruptionError("Got checksum %04x, expected %04x" % (vals[0], checksum))
+                raise CorruptionError('Invalid checksum', offset, vals[0], checksum)
 
         assert len(buf) == vals[2]
         self._folder_data[idx] += buf
