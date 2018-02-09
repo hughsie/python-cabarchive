@@ -18,14 +18,18 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301, USA
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 import cabarchive as cab
 import struct
 import sys
 
+
 def main():
 
     if len(sys.argv) == 1:
-        print "No input files given"
+        print("No input files given")
         return 1
 
     for arg in sys.argv[1:]:
@@ -42,12 +46,13 @@ def main():
                 break
             except cab.CorruptionError as e:
                 offset = e[1]
-                buf = buf[:offset] + struct.pack('<I', e[3]) + buf[offset+4:]
+                buf = buf[:offset] + struct.pack('<I', e[3]) + buf[offset + 4:]
 
         # save file
         f = open(arg, 'wb')
         f.write(buf);
         f.close();
+
 
 if __name__ == "__main__":
     main()

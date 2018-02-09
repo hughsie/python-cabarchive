@@ -18,14 +18,17 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301, USA
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 import os
 import struct
 import fnmatch
 import zlib
-import datetime
 
-from file import CabFile
-from errors import *
+from cabarchive.file import CabFile
+from cabarchive.errors import CorruptionError, NotSupportedError
+
 
 FMT_CFHEADER = '<4sxxxxIxxxxIxxxxBBHHHHH'
 FMT_CFFOLDER = '<IHH'
@@ -100,7 +103,7 @@ class CabArchive(object):
 
         # debugging
         if os.getenv('PYTHON_CABARCHIVE_DEBUG'):
-            print "CFFILE", vals
+            print("CFFILE", vals)
 
         # parse filename
         offset += struct.calcsize(fmt)
@@ -137,7 +140,7 @@ class CabArchive(object):
 
         # debugging
         if os.getenv('PYTHON_CABARCHIVE_DEBUG'):
-            print "CFFOLDER", vals
+            print("CFFOLDER", vals)
 
         # no data blocks?
         if vals[1] == 0:
@@ -159,7 +162,7 @@ class CabArchive(object):
         # parse CDATA
         self._folder_data.append(bytearray())
         offset = vals[0]
-        for i in range(vals[1]):
+        for _ in range(vals[1]):
             offset += self._parse_cfdata(idx, offset, is_zlib)
 
     def _parse_cfdata(self, idx, offset, is_zlib):
@@ -173,7 +176,7 @@ class CabArchive(object):
             raise CorruptionError(str(e))
         # debugging
         if os.getenv('PYTHON_CABARCHIVE_DEBUG'):
-            print "CFDATA", vals
+            print("CFDATA", vals)
         if not is_zlib and vals[1] != vals[2]:
             raise CorruptionError('Mismatched data %i != %i' % (vals[1], vals[2]))
         hdr_sz = struct.calcsize(fmt)
@@ -234,7 +237,7 @@ class CabArchive(object):
 
         # debugging
         if os.getenv('PYTHON_CABARCHIVE_DEBUG'):
-            print "CFHEADER", vals
+            print("CFHEADER", vals)
 
         # check magic bytes
         if vals[0] != b'MSCF':
