@@ -18,25 +18,31 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301, USA
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 import datetime
+
 
 def _is_ascii(text):
     """ Check if a string is ASCII only """
     return all(ord(c) < 128 for c in text)
 
+
 class CabFile(object):
 
     """An object representing a file in a Cab archive """
+
     def __init__(self, filename, contents=None):
         self.filename = filename
         self.contents = contents
         self.date = datetime.date.today()
         self.time = datetime.datetime.now().time()
-        self.is_readonly = False    # file is read-only
-        self.is_hidden = False      # file is hidden
-        self.is_system = False      # file is a system file
-        self.is_arch = True         # file modified since last backup
-        self.is_exec = False        # file is executable
+        self.is_readonly = False  # file is read-only
+        self.is_hidden = False  # file is hidden
+        self.is_system = False  # file is a system file
+        self.is_arch = True  # file modified since last backup
+        self.is_exec = False  # file is executable
         self.is_name_utf8 = not _is_ascii(filename)
 
     def _attr_encode(self):
