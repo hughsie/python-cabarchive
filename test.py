@@ -18,32 +18,38 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301, USA
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 import cabarchive as cab
 import datetime
 import subprocess
 import time
 import hashlib
 
-def check_archive(filename):
+
+def check_archive(filename, expected_rc=0):
     argv = ['cabextract', '--test', '/tmp/test.cab']
     rc = subprocess.call(argv)
-    assert rc == 0
+    assert rc == expected_rc, "invalid return code: %r" % rc
+
 
 def check_range(data, expected):
     assert data
     assert expected
     failures = 0
     if len(data) != len(expected):
-        print "different sizes, got %i expected %i" % (len(data), len(expected))
+        print("different sizes, got %i expected %i" % (len(data), len(expected)))
         failures += 1
     for i in range(0, len(data)):
         if data[i] != expected[i]:
-            print "@0x%02x got 0x%02x expected 0x%02x" % (i, data[i], expected[i])
+            print("@0x%02x got 0x%02x expected 0x%02x" % (i, data[i], expected[i]))
             failures += 1
             if failures > 10:
-                print "More than 10 failures, giving up..."
+                print("More than 10 failures, giving up...")
                 break
     assert failures == 0, "Data is not the same"
+
 
 def main():
 
@@ -51,16 +57,11 @@ def main():
     arc = cab.CabArchive()
     try:
         arc.parse('hello')
-    except cab.CorruptionError as e:
+    except cab.CorruptionError:
         pass
 
     # parse junk
-    arc = cab.CabArchive()
-    arc.set_decompressor('cabextract')
-    try:
-        arc.parse('hello')
-    except cab.CorruptionError as e:
-        pass
+    check_archive('hello', expected_rc=1)
 
     # test checksum function
     csum = cab.archive._checksum_compute('hello123')
@@ -72,7 +73,7 @@ def main():
     data = open('data/random.bin').read()
     start = time.time()
     csum = cab.archive._checksum_compute(data)
-    print "profile checksum: %fms" % ((time.time() - start) * 1000)
+    print("profile checksum: %fms" % ((time.time() - start) * 1000))
 
     # parse test files
     for fn in ['data/simple.cab',
@@ -81,7 +82,7 @@ def main():
                'data/large.cab',
                'data/large-compressed.cab']:
         arc = cab.CabArchive()
-        print 'Parsing:', fn
+        print('Parsing:', fn)
         old = open(fn, 'rb').read()
         arc.parse(old)
         assert len(arc.files) == 1
@@ -173,7 +174,7 @@ def main():
     # open a folder with multiple folders
     for fn in ['data/multi-folder.cab', 'data/ddf-fixed.cab']:
         arc = cab.CabArchive()
-        print 'Parsing:', fn
+        print('Parsing:', fn)
         old = open(fn, 'rb').read()
         arc.parse(old)
         assert len(arc.files) == 2, len(arc.files)
@@ -186,6 +187,7 @@ def main():
         arc.parse_file('data/multi-folder-compressed.cab')
     except cab.NotSupportedError as e:
         pass
+
 
 if __name__ == "__main__":
     main()
