@@ -108,10 +108,10 @@ class CabArchive:
         f._time_decode(vals[4])
         f._attr_decode(vals[5])
         f.contents = self._folder_data[vals[2]][vals[1] : vals[1] + vals[0]]
-        if f._contents_len != vals[0]:
+        if len(f) != vals[0]:
             raise CorruptionError(
                 "Corruption inside archive, %s is size %i but "
-                "expected size %i" % (filename, f._contents_len, vals[0])
+                "expected size %i" % (filename, len(f), vals[0])
             )
         self.files.append(f)
 
@@ -363,7 +363,7 @@ class CabArchive:
         for f in self.files:
             data += struct.pack(
                 FMT_CFFILE,
-                f._contents_len,  # uncompressed size
+                len(f),  # uncompressed size
                 index_into,  # uncompressed offset
                 0,  # index into CFFOLDER
                 f._date_encode(),  # date
@@ -371,7 +371,7 @@ class CabArchive:
                 f._attr_encode(),
             )  # attribs
             data += f.filename.encode() + b"\0"
-            index_into += f._contents_len
+            index_into += len(f)
 
         # create each CFDATA
         for i in range(0, len(chunks)):

@@ -31,8 +31,7 @@ class CabFile:
         self.is_exec = False  # file is executable
         self.is_name_utf8 = not _is_ascii(filename)
 
-    @property
-    def _contents_len(self) -> int:
+    def __len__(self) -> int:
         if not self.contents:
             return 0
         return len(self.contents)
