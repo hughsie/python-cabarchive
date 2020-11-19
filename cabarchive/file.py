@@ -84,8 +84,5 @@ class CabFile:
             (self.time.hour << 11) + (self.time.minute << 5) + int(self.time.second / 2)
         )
 
-    def __str__(self) -> str:
-        return self.filename
-
-    def __repr__(self):
-        return self.__str__()
+    def __repr__(self) -> str:
+        return "CabFile({}:{:x})".format(self.filename, len(self))

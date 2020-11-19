@@ -399,6 +399,5 @@ class CabArchive:
         with open(filename, "wb") as f:
             f.write(self.save(compressed))
 
-    def __repr__(self):
-        """ Represent the object as a string """
-        return "<CabArchive object %s>" % self.files
+    def __repr__(self) -> str:
+        return "CabArchive({})".format([str(self[cabfile]) for cabfile in self])
