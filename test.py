@@ -69,23 +69,24 @@ def main():
     ]:
         arc = cab.CabArchive()
         print("Parsing:", fn)
-        old = open(fn, "rb").read()
-        arc.parse(old)
-        assert len(arc.files) == 1
+        with open(fn, "rb") as f:
+            old = f.read()
+            arc.parse(old)
+        assert len(arc) == 1
         if arc.find_file("*.txt"):
-            cff = arc.files[0]
+            cff = list(arc.values())[0]
             assert cff.filename == "test.txt", cff.filename
             assert cff.contents == b"test123", cff.contents
             assert len(cff.contents) == 7, "Expected 7, got %i" % len(cff.contents)
             assert cff.date.year == 2015
         elif arc.find_file("*.dat"):
-            cff = arc.files[0]
+            cff = list(arc.values())[0]
             assert cff.filename == "tést.dat", cff.filename
             assert cff.contents == "tést123".encode(), cff.contents
             assert len(cff.contents) == 8, "Expected 8, got %i" % len(cff.contents)
             assert cff.date.year == 2015
         else:
-            cff = arc.files[0]
+            cff = list(arc.values())[0]
             assert cff.filename == "random.bin", cff.filename
             assert len(cff.contents) == 0xFFFFF, "Expected 1 Mb, got %i" % len(
                 cff.contents
@@ -108,24 +109,23 @@ def main():
     arc.set_id = 0x0622
 
     # first example
-    cff = cab.CabFile("hello.c")
+    cff = cab.CabFile()
     cff.contents = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Hello, world!\\n");\r\n}\r\n'
     cff.date = datetime.date(1997, 3, 12)
     cff.time = datetime.time(11, 13, 52)
-    arc.add_file(cff)
+    arc["hello.c"] = cff
 
     # second example
-    cff = cab.CabFile("welcome.c")
+    cff = cab.CabFile()
     cff.contents = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Welcome!\\n");\r\n}\r\n\r\n'
     cff.date = datetime.date(1997, 3, 12)
     cff.time = datetime.time(11, 15, 14)
-    arc.add_file(cff)
-
-    # save file
-    arc.save_file("/tmp/test.cab")
+    arc["welcome.c"] = cff
 
     # verify
-    data = open("/tmp/test.cab", "rb").read()
+    data = arc.save(False)
+    with open("/tmp/test.cab", "wb") as f:
+        f.write(data)
     expected = (
         b"\x4D\x53\x43\x46\x00\x00\x00\x00\xFD\x00\x00\x00\x00\x00\x00\x00"
         b"\x2C\x00\x00\x00\x00\x00\x00\x00\x03\x01\x01\x00\x02\x00\x00\x00"
@@ -153,13 +153,15 @@ def main():
 
     # check we can parse what we just created
     arc = cab.CabArchive()
-    arc.parse_file("/tmp/test.cab")
+    with open("/tmp/test.cab", "rb") as f:
+        arc.parse(f.read())
 
     # add an extra file
-    arc.add_file(cab.CabFile("test.inf", b"$CHICAGO$"))
+    arc["test.inf"] = cab.CabFile(b"$CHICAGO$")
 
     # save with compression
-    arc.save_file("/tmp/test.cab", True)
+    with open("/tmp/test.cab", "wb") as f:
+        f.write(arc.save(True))
 
     # use cabextract to test validity
     check_archive("/tmp/test.cab")
@@ -170,14 +172,15 @@ def main():
         print("Parsing:", fn)
         old = open(fn, "rb").read()
         arc.parse(old)
-        assert len(arc.files) == 2, len(arc.files)
+        assert len(arc) == 2, len(arc)
         cff = arc.find_file("*.txt")
         assert cff.contents == b"test123", cff.contents
 
     # parse junk
     arc = cab.CabArchive()
     try:
-        arc.parse_file("data/multi-folder-compressed.cab")
+        with open("data/multi-folder-compressed.cab", "rb") as f:
+            arc.parse(f.read())
     except cab.NotSupportedError as e:
         pass
 

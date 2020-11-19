@@ -54,28 +54,28 @@ def _checksum_compute(content: bytes, seed: int = 0) -> int:
     return csum
 
 
-class CabArchive:
+class CabArchive(dict):
     """An object representing a Microsoft Cab archive """
 
-    def __init__(self):
-        """ Set defaults """
-        self.files: List[CabFile] = []
+    def __init__(self, buf: Optional[bytes] = None, flattern: bool = False):
+        """ Parses a MS Cabinet archive """
+        dict.__init__(self)
+
         self.set_id: int = 0
         self._buf_file: bytes = None
         self._folder_data: List[bytearray] = []
         self._is_multi_folder: bool = False
+        self._flattern: bool = flattern
 
-    def add_file(self, cffile: CabFile):
-        """ Add file to archive """
+        # load archive
+        if buf:
+            self.parse(buf)
 
-        # remove old file if already present
-        for tmp in self.files:
-            if tmp.filename == cffile.filename:
-                self.files.remove(tmp)
-                break
-
-        # add object
-        self.files.append(cffile)
+    def __setitem__(self, key: str, val: CabFile) -> None:
+        assert isinstance(key, str)
+        assert isinstance(val, CabFile)
+        val.filename = key
+        dict.__setitem__(self, key, val)
 
     def _parse_cffile(self, offset: int) -> int:
         """ Parse a CFFILE entry """
@@ -90,10 +90,6 @@ class CabArchive:
         except struct.error as e:
             raise CorruptionError(str(e))
 
-        # debugging
-        if os.getenv("PYTHON_CABARCHIVE_DEBUG"):
-            print("CFFILE", vals)
-
         # parse filename
         offset += struct.calcsize(fmt)
         filename = ""
@@ -103,7 +99,7 @@ class CabArchive:
                 break
 
         # add file
-        f = CabFile(filename)
+        f = CabFile()
         f._date_decode(vals[3])
         f._time_decode(vals[4])
         f._attr_decode(vals[5])
@@ -113,7 +109,9 @@ class CabArchive:
                 "Corruption inside archive, %s is size %i but "
                 "expected size %i" % (filename, len(f), vals[0])
             )
-        self.files.append(f)
+        if self._flattern:
+            filename = os.path.basename(filename)
+        self[filename] = f
 
         # return offset to next entry
         return 16 + len(filename) + 1
@@ -127,10 +125,6 @@ class CabArchive:
             vals = struct.unpack_from(fmt, self._buf_file, offset)
         except struct.error as e:
             raise CorruptionError(str(e))
-
-        # debugging
-        if os.getenv("PYTHON_CABARCHIVE_DEBUG"):
-            print("CFFOLDER", vals)
 
         # no data blocks?
         if vals[1] == 0:
@@ -166,9 +160,6 @@ class CabArchive:
             vals = struct.unpack_from(fmt, self._buf_file, offset)
         except struct.error as e:
             raise CorruptionError(str(e))
-        # debugging
-        if os.getenv("PYTHON_CABARCHIVE_DEBUG"):
-            print("CFDATA", vals)
         if not is_zlib and vals[1] != vals[2]:
             raise CorruptionError("Mismatched data %i != %i" % (vals[1], vals[2]))
         hdr_sz = struct.calcsize(fmt)
@@ -282,24 +273,19 @@ class CabArchive:
         for i in range(0, nr_files):
             off_cffile += self._parse_cffile(off_cffile)
 
-    def parse_file(self, filename: str):
-        """ Parse a .cab file """
-        with open(filename, "rb") as f:
-            self.parse(f.read())
-
     def find_file(self, glob: str) -> Optional[CabFile]:
         """ Gets a file from the archive using a glob """
-        for cf in self.files:
-            if fnmatch.fnmatch(cf.filename, glob):
-                return cf
+        for fn in self:
+            if fnmatch.fnmatch(fn, glob):
+                return self[fn]
         return None
 
     def find_files(self, glob: str) -> List[CabFile]:
         """ Gets files from the archive using a glob """
         arr = []
-        for cf in self.files:
-            if fnmatch.fnmatch(cf.filename, glob):
-                arr.append(cf)
+        for fn in self:
+            if fnmatch.fnmatch(fn, glob):
+                arr.append(self[fn])
         return arr
 
     def save(self, compressed: bool = False) -> bytes:
@@ -307,7 +293,8 @@ class CabArchive:
 
         # create linear CFDATA block
         cfdata_linear = bytearray()
-        for f in self.files:
+        for fn in self:
+            f = self[fn]
             if f.contents:
                 cfdata_linear += f.contents
 
@@ -327,7 +314,8 @@ class CabArchive:
         # create header
         archive_size = struct.calcsize(FMT_CFHEADER)
         archive_size += struct.calcsize(FMT_CFFOLDER)
-        for f in self.files:
+        for fn in self:
+            f = self[fn]
             archive_size += struct.calcsize(FMT_CFFILE) + len(f.filename.encode()) + 1
         for chunk in chunks_zlib:
             archive_size += struct.calcsize(FMT_CFDATA) + len(chunk)
@@ -341,14 +329,15 @@ class CabArchive:
             3,
             1,  # ver minor major
             1,  # no of CFFOLDERs
-            len(self.files),  # no of CFFILEs
+            len(self),  # no of CFFILEs
             0,  # flags
             self.set_id,  # setID
             0,
         )  # cnt of cabs in set
 
         # create folder
-        for f in self.files:
+        for fn in self:
+            f = self[fn]
             offset += struct.calcsize(FMT_CFFILE)
             offset += len(f.filename.encode()) + 1
         data += struct.pack(
@@ -360,7 +349,8 @@ class CabArchive:
 
         # create each CFFILE
         index_into = 0
-        for f in self.files:
+        for fn in self:
+            f = self[fn]
             data += struct.pack(
                 FMT_CFFILE,
                 len(f),  # uncompressed size
@@ -393,11 +383,6 @@ class CabArchive:
 
         # return bytearray
         return data
-
-    def save_file(self, filename: str, compressed: bool = False) -> None:
-        """ Saves a cabinet file to disk """
-        with open(filename, "wb") as f:
-            f.write(self.save(compressed))
 
     def __repr__(self) -> str:
         return "CabArchive({})".format([str(self[cabfile]) for cabfile in self])
