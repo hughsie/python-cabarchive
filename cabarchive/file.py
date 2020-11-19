@@ -12,6 +12,8 @@ from typing import Any, Optional
 
 def _is_ascii(text: str) -> bool:
     """ Check if a string is ASCII only """
+    if not text:
+        return False
     return all(ord(c) < 128 for c in text)
 
 
@@ -19,7 +21,9 @@ class CabFile:
 
     """An object representing a file in a Cab archive """
 
-    def __init__(self, filename: str, contents: Optional[bytes] = None):
+    def __init__(
+        self, contents: Optional[bytes] = None, filename: Optional[str] = None
+    ):
         self.filename = filename
         self.contents = contents
         self.date = datetime.date.today()
@@ -29,13 +33,20 @@ class CabFile:
         self.is_system = False  # file is a system file
         self.is_arch = True  # file modified since last backup
         self.is_exec = False  # file is executable
-        self.is_name_utf8 = not _is_ascii(filename)
 
-    @property
-    def _contents_len(self) -> int:
+    def __len__(self) -> int:
         if not self.contents:
             return 0
         return len(self.contents)
+
+    @property
+    def filename(self) -> Optional[str]:
+        return self._filename
+
+    @filename.setter
+    def filename(self, filename: str):
+        self.is_name_utf8 = not _is_ascii(filename)
+        self._filename = filename
 
     def _attr_encode(self) -> int:
         """ Get attributes on the file """
@@ -85,8 +96,5 @@ class CabFile:
             (self.time.hour << 11) + (self.time.minute << 5) + int(self.time.second / 2)
         )
 
-    def __str__(self) -> str:
-        return self.filename
-
-    def __repr__(self):
-        return self.__str__()
+    def __repr__(self) -> str:
+        return "CabFile({}:{:x})".format(self.filename, len(self))

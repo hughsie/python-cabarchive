@@ -4,6 +4,8 @@
 # Copyright (C) 2015-2020 Richard Hughes <richard@hughsie.com>
 #
 # SPDX-License-Identifier: LGPL-2.1+
+#
+# pylint: disable=protected-access
 
 import os
 import struct
@@ -54,30 +56,29 @@ def _checksum_compute(content: bytes, seed: int = 0) -> int:
     return csum
 
 
-class CabArchive:
+class CabArchive(dict):
     """An object representing a Microsoft Cab archive """
 
-    def __init__(self):
-        """ Set defaults """
-        self.files: List[CabFile] = []
+    def __init__(self, buf: Optional[bytes] = None, flattern: bool = False):
+        """ Parses a MS Cabinet archive """
+        dict.__init__(self)
+
         self.set_id: int = 0
-        self._buf_file: bytes = None
         self._folder_data: List[bytearray] = []
         self._is_multi_folder: bool = False
+        self._flattern: bool = flattern
 
-    def add_file(self, cffile: CabFile):
-        """ Add file to archive """
+        # load archive
+        if buf:
+            self.parse(buf)
 
-        # remove old file if already present
-        for tmp in self.files:
-            if tmp.filename == cffile.filename:
-                self.files.remove(tmp)
-                break
+    def __setitem__(self, key: str, val: CabFile) -> None:
+        assert isinstance(key, str)
+        assert isinstance(val, CabFile)
+        val.filename = key
+        dict.__setitem__(self, key, val)
 
-        # add object
-        self.files.append(cffile)
-
-    def _parse_cffile(self, offset: int) -> int:
+    def _parse_cffile(self, buf: bytes, offset: int) -> int:
         """ Parse a CFFILE entry """
         fmt = "<I"  # uncompressed size
         fmt += "I"  # uncompressed offset of this file in the folder
@@ -86,51 +87,45 @@ class CabArchive:
         fmt += "H"  # time
         fmt += "H"  # attribs
         try:
-            vals = struct.unpack_from(fmt, self._buf_file, offset)
+            vals = struct.unpack_from(fmt, buf, offset)
         except struct.error as e:
-            raise CorruptionError(str(e))
-
-        # debugging
-        if os.getenv("PYTHON_CABARCHIVE_DEBUG"):
-            print("CFFILE", vals)
+            raise CorruptionError from e
 
         # parse filename
         offset += struct.calcsize(fmt)
         filename = ""
         for i in range(0, 255):
-            if self._buf_file[offset + i] == 0x0:
-                filename = self._buf_file[offset : offset + i].decode()
+            if buf[offset + i] == 0x0:
+                filename = buf[offset : offset + i].decode()
                 break
 
         # add file
-        f = CabFile(filename)
+        f = CabFile()
         f._date_decode(vals[3])
         f._time_decode(vals[4])
         f._attr_decode(vals[5])
         f.contents = self._folder_data[vals[2]][vals[1] : vals[1] + vals[0]]
-        if f._contents_len != vals[0]:
+        if len(f) != vals[0]:
             raise CorruptionError(
                 "Corruption inside archive, %s is size %i but "
-                "expected size %i" % (filename, f._contents_len, vals[0])
+                "expected size %i" % (filename, len(f), vals[0])
             )
-        self.files.append(f)
+        if self._flattern:
+            filename = os.path.basename(filename)
+        self[filename] = f
 
         # return offset to next entry
         return 16 + len(filename) + 1
 
-    def _parse_cffolder(self, idx: int, offset: int) -> None:
+    def _parse_cffolder(self, buf: bytes, idx: int, offset: int) -> None:
         """ Parse a CFFOLDER entry """
         fmt = "<I"  # offset to CFDATA
         fmt += "H"  # number of CFDATA blocks
         fmt += "H"  # compression type
         try:
-            vals = struct.unpack_from(fmt, self._buf_file, offset)
+            vals = struct.unpack_from(fmt, buf, offset)
         except struct.error as e:
-            raise CorruptionError(str(e))
-
-        # debugging
-        if os.getenv("PYTHON_CABARCHIVE_DEBUG"):
-            print("CFFOLDER", vals)
+            raise CorruptionError from e
 
         # no data blocks?
         if vals[1] == 0:
@@ -155,24 +150,21 @@ class CabArchive:
         self._folder_data.append(bytearray())
         offset = vals[0]
         for _ in range(vals[1]):
-            offset += self._parse_cfdata(idx, offset, is_zlib)
+            offset += self._parse_cfdata(buf, idx, offset, is_zlib)
 
-    def _parse_cfdata(self, idx: int, offset: int, is_zlib: bool) -> int:
+    def _parse_cfdata(self, buf: bytes, idx: int, offset: int, is_zlib: bool) -> int:
         """ Parse a CFDATA entry """
         fmt = "<I"  # checksum
         fmt += "H"  # compressed bytes
         fmt += "H"  # uncompressed bytes
         try:
-            vals = struct.unpack_from(fmt, self._buf_file, offset)
+            vals = struct.unpack_from(fmt, buf, offset)
         except struct.error as e:
-            raise CorruptionError(str(e))
-        # debugging
-        if os.getenv("PYTHON_CABARCHIVE_DEBUG"):
-            print("CFDATA", vals)
+            raise CorruptionError from e
         if not is_zlib and vals[1] != vals[2]:
             raise CorruptionError("Mismatched data %i != %i" % (vals[1], vals[2]))
         hdr_sz = struct.calcsize(fmt)
-        newbuf = self._buf_file[offset + hdr_sz : offset + hdr_sz + vals[1]]
+        newbuf = buf[offset + hdr_sz : offset + hdr_sz + vals[1]]
 
         # decompress Zlib data after removing *another* header...
         if is_zlib:
@@ -185,7 +177,7 @@ class CabArchive:
                 buf = decompress.decompress(newbuf[2:])
                 buf += decompress.flush()
             except zlib.error as e:
-                raise CorruptionError("Failed to decompress: " + str(e))
+                raise CorruptionError("Failed to decompress") from e
         else:
             buf = newbuf
 
@@ -203,9 +195,6 @@ class CabArchive:
 
     def parse(self, buf: bytes):
         """ Parse .cab data """
-
-        # slurp the whole buffer at once
-        self._buf_file = buf
 
         # read the file header
         fmt = "<4s"  # signature
@@ -225,9 +214,9 @@ class CabArchive:
         #        fmt += 'B'      # reserved block size
         #        fmt += 'B'      # per-cabinet reserved area
         try:
-            vals = struct.unpack_from(fmt, self._buf_file, 0)
+            vals = struct.unpack_from(fmt, buf, 0)
         except struct.error as e:
-            raise CorruptionError(str(e))
+            raise CorruptionError from e
 
         # debugging
         if os.getenv("PYTHON_CABARCHIVE_DEBUG"):
@@ -238,7 +227,7 @@ class CabArchive:
             raise NotSupportedError("Data is not application/vnd.ms-cab-compressed")
 
         # check size matches
-        if vals[1] != len(self._buf_file):
+        if vals[1] != len(buf):
             raise CorruptionError("Cab file internal size does not match data")
 
         # check version
@@ -258,7 +247,7 @@ class CabArchive:
 
         # verify we got complete data
         off_cffile = vals[2]
-        if off_cffile > len(self._buf_file):
+        if off_cffile > len(buf):
             raise CorruptionError("Cab file corrupt")
 
         # chained cabs not supported
@@ -275,31 +264,26 @@ class CabArchive:
         # parse CFFOLDER
         offset = struct.calcsize(fmt)
         for i in range(vals[5]):
-            self._parse_cffolder(i, offset)
+            self._parse_cffolder(buf, i, offset)
             offset += struct.calcsize(FMT_CFFOLDER)
 
         # parse CFFILEs
         for i in range(0, nr_files):
-            off_cffile += self._parse_cffile(off_cffile)
-
-    def parse_file(self, filename: str):
-        """ Parse a .cab file """
-        with open(filename, "rb") as f:
-            self.parse(f.read())
+            off_cffile += self._parse_cffile(buf, off_cffile)
 
     def find_file(self, glob: str) -> Optional[CabFile]:
         """ Gets a file from the archive using a glob """
-        for cf in self.files:
-            if fnmatch.fnmatch(cf.filename, glob):
-                return cf
+        for fn in self:
+            if fnmatch.fnmatch(fn, glob):
+                return self[fn]
         return None
 
     def find_files(self, glob: str) -> List[CabFile]:
         """ Gets files from the archive using a glob """
         arr = []
-        for cf in self.files:
-            if fnmatch.fnmatch(cf.filename, glob):
-                arr.append(cf)
+        for fn in self:
+            if fnmatch.fnmatch(fn, glob):
+                arr.append(self[fn])
         return arr
 
     def save(self, compressed: bool = False) -> bytes:
@@ -307,7 +291,8 @@ class CabArchive:
 
         # create linear CFDATA block
         cfdata_linear = bytearray()
-        for f in self.files:
+        for fn in self:
+            f = self[fn]
             if f.contents:
                 cfdata_linear += f.contents
 
@@ -327,7 +312,8 @@ class CabArchive:
         # create header
         archive_size = struct.calcsize(FMT_CFHEADER)
         archive_size += struct.calcsize(FMT_CFFOLDER)
-        for f in self.files:
+        for fn in self:
+            f = self[fn]
             archive_size += struct.calcsize(FMT_CFFILE) + len(f.filename.encode()) + 1
         for chunk in chunks_zlib:
             archive_size += struct.calcsize(FMT_CFDATA) + len(chunk)
@@ -341,14 +327,15 @@ class CabArchive:
             3,
             1,  # ver minor major
             1,  # no of CFFOLDERs
-            len(self.files),  # no of CFFILEs
+            len(self),  # no of CFFILEs
             0,  # flags
             self.set_id,  # setID
             0,
         )  # cnt of cabs in set
 
         # create folder
-        for f in self.files:
+        for fn in self:
+            f = self[fn]
             offset += struct.calcsize(FMT_CFFILE)
             offset += len(f.filename.encode()) + 1
         data += struct.pack(
@@ -360,10 +347,11 @@ class CabArchive:
 
         # create each CFFILE
         index_into = 0
-        for f in self.files:
+        for fn in self:
+            f = self[fn]
             data += struct.pack(
                 FMT_CFFILE,
-                f._contents_len,  # uncompressed size
+                len(f),  # uncompressed size
                 index_into,  # uncompressed offset
                 0,  # index into CFFOLDER
                 f._date_encode(),  # date
@@ -371,7 +359,7 @@ class CabArchive:
                 f._attr_encode(),
             )  # attribs
             data += f.filename.encode() + b"\0"
-            index_into += f._contents_len
+            index_into += len(f)
 
         # create each CFDATA
         for i in range(0, len(chunks)):
@@ -394,11 +382,5 @@ class CabArchive:
         # return bytearray
         return data
 
-    def save_file(self, filename: str, compressed: bool = False) -> None:
-        """ Saves a cabinet file to disk """
-        with open(filename, "wb") as f:
-            f.write(self.save(compressed))
-
-    def __repr__(self):
-        """ Represent the object as a string """
-        return "<CabArchive object %s>" % self.files
+    def __repr__(self) -> str:
+        return "CabArchive({})".format([str(self[cabfile]) for cabfile in self])

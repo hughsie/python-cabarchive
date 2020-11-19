@@ -5,11 +5,10 @@
 #
 # SPDX-License-Identifier: LGPL-2.1+
 
-import cabarchive as cab
 import struct
 import sys
 
-from typing import Any, Optional, Dict, List
+from cabarchive import CabArchive, CorruptionError
 
 
 def main():
@@ -21,7 +20,7 @@ def main():
     for arg in sys.argv[1:]:
 
         # load file
-        arc = cab.CabArchive()
+        arc = CabArchive()
         with open(arg, "rb") as f:
             buf = f.read()
 
@@ -30,7 +29,7 @@ def main():
             try:
                 arc.parse(buf)
                 break
-            except cab.CorruptionError as e:
+            except CorruptionError as e:
                 offset = e[1]
                 buf = buf[:offset] + struct.pack("<I", e[3]) + buf[offset + 4 :]
 
