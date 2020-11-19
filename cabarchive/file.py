@@ -1,26 +1,25 @@
-#!/usr/bin/python2
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2015 Richard Hughes <richard@hughsie.com>
+# Copyright (C) 2015-2020 Richard Hughes <richard@hughsie.com>
 #
 # SPDX-License-Identifier: LGPL-2.1+
 
-from __future__ import absolute_import
-from __future__ import print_function
-
 import datetime
 
+from typing import Any, Optional
 
-def _is_ascii(text):
+
+def _is_ascii(text: str) -> bool:
     """ Check if a string is ASCII only """
     return all(ord(c) < 128 for c in text)
 
 
-class CabFile(object):
+class CabFile:
 
     """An object representing a file in a Cab archive """
 
-    def __init__(self, filename, contents=None):
+    def __init__(self, filename: str, contents: Optional[bytes] = None):
         self.filename = filename
         self.contents = contents
         self.date = datetime.date.today()
@@ -32,7 +31,13 @@ class CabFile(object):
         self.is_exec = False  # file is executable
         self.is_name_utf8 = not _is_ascii(filename)
 
-    def _attr_encode(self):
+    @property
+    def _contents_len(self) -> int:
+        if not self.contents:
+            return 0
+        return len(self.contents)
+
+    def _attr_encode(self) -> int:
         """ Get attributes on the file """
         attr = 0x00
         if self.is_readonly:
@@ -49,7 +54,7 @@ class CabFile(object):
             attr += 0x80
         return attr
 
-    def _attr_decode(self, attr):
+    def _attr_decode(self, attr: int):
         """ Set attributes on the file """
         self.is_readonly = bool(attr & 0x01)
         self.is_hidden = bool(attr & 0x02)
@@ -58,27 +63,29 @@ class CabFile(object):
         self.is_exec = bool(attr & 0x40)
         self.is_name_utf8 = bool(attr & 0x80)
 
-    def _date_decode(self, val):
+    def _date_decode(self, val: int) -> Any:
         """ Decode the MSCAB 32-bit date format """
-        self.date = datetime.date(1980 + ((val & 0xfe00) >> 9),
-                                  (val & 0x01e0) >> 5,
-                                  val & 0x001f)
+        self.date = datetime.date(
+            1980 + ((val & 0xFE00) >> 9), (val & 0x01E0) >> 5, val & 0x001F
+        )
 
-    def _time_decode(self, val):
+    def _time_decode(self, val: int) -> Any:
         """ Decode the MSCAB 32-bit time format """
-        self.time = datetime.time((val & 0xf800) >> 11,
-                                  (val & 0x07e0) >> 5,
-                                  (val & 0x001f) * 2)
+        self.time = datetime.time(
+            (val & 0xF800) >> 11, (val & 0x07E0) >> 5, (val & 0x001F) * 2
+        )
 
-    def _date_encode(self):
+    def _date_encode(self) -> int:
         """ Encode the MSCAB 32-bit date format """
         return ((self.date.year - 1980) << 9) + (self.date.month << 5) + self.date.day
 
-    def _time_encode(self):
+    def _time_encode(self) -> int:
         """ Encode the MSCAB 32-bit time format """
-        return (self.time.hour << 11) + (self.time.minute << 5) + (self.time.second / 2)
+        return (
+            (self.time.hour << 11) + (self.time.minute << 5) + int(self.time.second / 2)
+        )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.filename
 
     def __repr__(self):

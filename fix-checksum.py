@@ -1,16 +1,15 @@
-#!/usr/bin/python2
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2017 Richard Hughes <richard@hughsie.com>
+# Copyright (C) 2017-2020 Richard Hughes <richard@hughsie.com>
 #
 # SPDX-License-Identifier: LGPL-2.1+
-
-from __future__ import absolute_import
-from __future__ import print_function
 
 import cabarchive as cab
 import struct
 import sys
+
+from typing import Any, Optional, Dict, List
 
 
 def main():
@@ -23,8 +22,8 @@ def main():
 
         # load file
         arc = cab.CabArchive()
-        f = open(arg, 'rb')
-        buf = f.read()
+        with open(arg, "rb") as f:
+            buf = f.read()
 
         # parse cabinet, repeating until all the checksums are fixed
         while True:
@@ -33,12 +32,11 @@ def main():
                 break
             except cab.CorruptionError as e:
                 offset = e[1]
-                buf = buf[:offset] + struct.pack('<I', e[3]) + buf[offset + 4:]
+                buf = buf[:offset] + struct.pack("<I", e[3]) + buf[offset + 4 :]
 
         # save file
-        f = open(arg, 'wb')
-        f.write(buf);
-        f.close();
+        with open(arg, "wb") as f:
+            f.write(buf)
 
 
 if __name__ == "__main__":

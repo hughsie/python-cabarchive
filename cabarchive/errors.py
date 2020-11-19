@@ -1,12 +1,9 @@
-#!/usr/bin/python2
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2015 Richard Hughes <richard@hughsie.com>
+# Copyright (C) 2015-2020 Richard Hughes <richard@hughsie.com>
 #
 # SPDX-License-Identifier: LGPL-2.1+
-
-from __future__ import absolute_import
-from __future__ import print_function
 
 
 class CorruptionError(Exception):
