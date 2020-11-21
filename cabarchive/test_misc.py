@@ -22,13 +22,13 @@ from cabarchive import CabArchive, CabFile, CorruptionError, NotSupportedError
 from cabarchive.archive import _checksum_compute
 
 
-def _check_archive(filename: str, expected_rc: int = 0):
+def _check_archive(filename: str, expected_rc: int = 0) -> None:
     argv = ["cabextract", "--test", filename]
     rc = subprocess.call(argv)
     assert rc == expected_rc, "invalid return code: %r" % rc
 
 
-def _check_range(data: bytes, expected: bytes):
+def _check_range(data: bytes, expected: bytes) -> None:
     assert data
     assert expected
     failures = 0

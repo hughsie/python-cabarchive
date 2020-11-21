@@ -44,7 +44,7 @@ class CabFile:
         return self._filename
 
     @filename.setter
-    def filename(self, filename: str):
+    def filename(self, filename: str) -> None:
         self.is_name_utf8 = not _is_ascii(filename)
         self._filename = filename
 
@@ -65,7 +65,7 @@ class CabFile:
             attr += 0x80
         return attr
 
-    def _attr_decode(self, attr: int):
+    def _attr_decode(self, attr: int) -> None:
         """ Set attributes on the file """
         self.is_readonly = bool(attr & 0x01)
         self.is_hidden = bool(attr & 0x02)

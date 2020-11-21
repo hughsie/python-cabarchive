@@ -193,7 +193,7 @@ class CabArchive(dict):
         self._folder_data[idx] += buf
         return vals[1] + hdr_sz
 
-    def parse(self, buf: bytes):
+    def parse(self, buf: bytes) -> None:
         """ Parse .cab data """
 
         # read the file header
