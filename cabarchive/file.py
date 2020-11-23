@@ -38,7 +38,7 @@ class CabFile:
         self.is_readonly = False  # file is read-only
         self.is_hidden = False  # file is hidden
         self.is_system = False  # file is a system file
-        self.is_arch = True  # file modified since last backup
+        self.is_arch = False  # file modified since last backup
         self.is_exec = False  # file is executable
 
     def __len__(self) -> int:

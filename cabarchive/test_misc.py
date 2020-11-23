@@ -60,6 +60,19 @@ class TestInfParser(unittest.TestCase):
         csum = _checksum_compute(data)
         print("profile checksum: %fms" % ((time.time() - start) * 1000))
 
+    def test_compressed(self):
+        cabarchive = CabArchive()
+
+        # make predictable
+        dt_epoch = datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
+        cabarchive["README.txt"] = CabFile(b"foofoofoofoofoofoofoofoo", mtime=dt_epoch)
+        cabarchive["firmware.bin"] = CabFile(b"barbarbarbarbarbarbarbar", mtime=dt_epoch)
+        buf = cabarchive.save(compress=True)
+        self.assertEqual(len(buf), 122)
+        self.assertEqual(
+            hashlib.sha1(buf).hexdigest(), "74e94703c403aa93b16d01b088eb52e3a9c73288"
+        )
+
     def test_values(self):
 
         # parse junk
@@ -124,6 +137,7 @@ class TestInfParser(unittest.TestCase):
         cff.buf = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Hello, world!\\n");\r\n}\r\n'
         cff.date = datetime.date(1997, 3, 12)
         cff.time = datetime.time(11, 13, 52)
+        cff.is_arch = True
         arc["hello.c"] = cff
 
         # second example
@@ -131,6 +145,7 @@ class TestInfParser(unittest.TestCase):
         cff.buf = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Welcome!\\n");\r\n}\r\n\r\n'
         cff.date = datetime.date(1997, 3, 12)
         cff.time = datetime.time(11, 15, 14)
+        cff.is_arch = True
         arc["welcome.c"] = cff
 
         # verify
