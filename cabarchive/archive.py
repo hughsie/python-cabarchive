@@ -119,7 +119,7 @@ class CabArchive(dict):
         self[filename] = f
 
         # return offset to next entry
-        return 16 + len(filename) + 1
+        return 16 + i + 1
 
     def _parse_cffolder(self, buf: bytes, idx: int, offset: int) -> None:
         """ Parse a CFFOLDER entry """
