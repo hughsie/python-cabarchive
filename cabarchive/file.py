@@ -91,7 +91,7 @@ class CabFile:
             1980 + ((val & 0xFE00) >> 9), (val & 0x01E0) >> 5, val & 0x001F
         )
 
-    def _time_decode(self, val: int) -> Any:
+    def _time_decode(self, val: int) -> None:
         """ Decode the MSCAB 32-bit time format """
         self.time = datetime.time(
             (val & 0xF800) >> 11, (val & 0x07E0) >> 5, (val & 0x001F) * 2
