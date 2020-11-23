@@ -95,6 +95,8 @@ class CabFile:
 
     def _date_encode(self) -> int:
         """ Encode the MSCAB 32-bit date format """
+        if self.date.year < 1980:
+            return 0
         return ((self.date.year - 1980) << 9) + (self.date.month << 5) + self.date.day
 
     def _time_encode(self) -> int:
