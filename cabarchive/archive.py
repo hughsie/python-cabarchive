@@ -290,13 +290,20 @@ class CabArchive(dict):
                 arr.append(self[fn])
         return arr
 
-    def save(self, compress: bool = False) -> bytes:
+    def save(self, compress: bool = False, sort: bool = True) -> bytes:
         """ Returns cabinet file data """
+
+        # sort files before export
+        cffiles: List[CabFile] = []
+        if sort:
+            for fn in sorted(self.keys()):
+                cffiles.append(self[fn])
+        else:
+            cffiles.extend(self.values())
 
         # create linear CFDATA block
         cfdata_linear = bytearray()
-        for fn in self:
-            f = self[fn]
+        for f in cffiles:
             if f.buf:
                 cfdata_linear += f.buf
 
@@ -316,8 +323,9 @@ class CabArchive(dict):
         # create header
         archive_size = struct.calcsize(FMT_CFHEADER)
         archive_size += struct.calcsize(FMT_CFFOLDER)
-        for fn in self:
-            f = self[fn]
+        for f in cffiles:
+            if not f._filename_win32:
+                continue
             archive_size += struct.calcsize(FMT_CFFILE) + len(f._filename_win32.encode()) + 1
         for chunk in chunks_zlib:
             archive_size += struct.calcsize(FMT_CFDATA) + len(chunk)
@@ -338,8 +346,9 @@ class CabArchive(dict):
         )  # cnt of cabs in set
 
         # create folder
-        for fn in self:
-            f = self[fn]
+        for f in cffiles:
+            if not f._filename_win32:
+                continue
             offset += struct.calcsize(FMT_CFFILE)
             offset += len(f._filename_win32.encode()) + 1
         data += struct.pack(
@@ -351,8 +360,9 @@ class CabArchive(dict):
 
         # create each CFFILE
         index_into = 0
-        for fn in self:
-            f = self[fn]
+        for f in cffiles:
+            if not f._filename_win32:
+                continue
             data += struct.pack(
                 FMT_CFFILE,
                 len(f),  # uncompressed size
