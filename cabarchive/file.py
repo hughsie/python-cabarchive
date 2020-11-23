@@ -7,7 +7,7 @@
 
 import datetime
 
-from typing import Any, Optional
+from typing import Optional
 
 
 def _is_ascii(text: str) -> bool:
@@ -85,7 +85,7 @@ class CabFile:
         self.is_exec = bool(attr & 0x40)
         self.is_name_utf8 = bool(attr & 0x80)
 
-    def _date_decode(self, val: int) -> Any:
+    def _date_decode(self, val: int) -> None:
         """ Decode the MSCAB 32-bit date format """
         self.date = datetime.date(
             1980 + ((val & 0xFE00) >> 9), (val & 0x01E0) >> 5, val & 0x001F
