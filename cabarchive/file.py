@@ -29,6 +29,8 @@ class CabFile:
     ):
         self.filename = filename
         self.buf = buf
+        self.date: Optional[datetime.date]
+        self.time: Optional[datetime.time]
         if mtime:
             self.date = mtime.date()
             self.time = mtime.time()
@@ -87,24 +89,32 @@ class CabFile:
 
     def _date_decode(self, val: int) -> None:
         """ Decode the MSCAB 32-bit date format """
-        self.date = datetime.date(
-            1980 + ((val & 0xFE00) >> 9), (val & 0x01E0) >> 5, val & 0x001F
-        )
+        try:
+            self.date = datetime.date(
+                1980 + ((val & 0xFE00) >> 9), (val & 0x01E0) >> 5, val & 0x001F
+            )
+        except ValueError as _:
+            self.date = None
 
     def _time_decode(self, val: int) -> None:
         """ Decode the MSCAB 32-bit time format """
-        self.time = datetime.time(
-            (val & 0xF800) >> 11, (val & 0x07E0) >> 5, (val & 0x001F) * 2
-        )
+        try:
+            self.time = datetime.time(
+                (val & 0xF800) >> 11, (val & 0x07E0) >> 5, (val & 0x001F) * 2
+            )
+        except ValueError as _:
+            self.time = None
 
     def _date_encode(self) -> int:
         """ Encode the MSCAB 32-bit date format """
-        if self.date.year < 1980:
+        if not self.date or self.date.year < 1980:
             return 0
         return ((self.date.year - 1980) << 9) + (self.date.month << 5) + self.date.day
 
     def _time_encode(self) -> int:
         """ Encode the MSCAB 32-bit time format """
+        if not self.time:
+            return 0
         return (
             (self.time.hour << 11) + (self.time.minute << 5) + int(self.time.second / 2)
         )
