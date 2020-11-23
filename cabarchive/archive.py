@@ -104,7 +104,7 @@ class CabArchive(dict):
         f._date_decode(vals[3])
         f._time_decode(vals[4])
         f._attr_decode(vals[5])
-        f.contents = self._folder_data[vals[2]][vals[1] : vals[1] + vals[0]]
+        f.buf = self._folder_data[vals[2]][vals[1] : vals[1] + vals[0]]
         if len(f) != vals[0]:
             raise CorruptionError(
                 "Corruption inside archive, %s is size %i but "
@@ -293,8 +293,8 @@ class CabArchive(dict):
         cfdata_linear = bytearray()
         for fn in self:
             f = self[fn]
-            if f.contents:
-                cfdata_linear += f.contents
+            if f.buf:
+                cfdata_linear += f.buf
 
         # _chunkify and compress with a fixed size
         chunks = _chunkify(cfdata_linear, 0x8000)

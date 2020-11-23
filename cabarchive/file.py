@@ -21,11 +21,9 @@ class CabFile:
 
     """An object representing a file in a Cab archive """
 
-    def __init__(
-        self, contents: Optional[bytes] = None, filename: Optional[str] = None
-    ):
+    def __init__(self, buf: Optional[bytes] = None, filename: Optional[str] = None):
         self.filename = filename
-        self.contents = contents
+        self.buf = buf
         self.date = datetime.date.today()
         self.time = datetime.datetime.now().time()
         self.is_readonly = False  # file is read-only
@@ -35,9 +33,9 @@ class CabFile:
         self.is_exec = False  # file is executable
 
     def __len__(self) -> int:
-        if not self.contents:
+        if not self.buf:
             return 0
-        return len(self.contents)
+        return len(self.buf)
 
     @property
     def filename(self) -> Optional[str]:

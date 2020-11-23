@@ -89,23 +89,21 @@ class TestInfParser(unittest.TestCase):
             if arc.find_file("*.txt"):
                 cff = list(arc.values())[0]
                 self.assertEqual(cff.filename, "test.txt")
-                assert cff.contents == b"test123", cff.contents
-                assert len(cff.contents) == 7, "Expected 7, got %i" % len(cff.contents)
+                assert cff.buf == b"test123", cff.buf
+                assert len(cff.buf) == 7, "Expected 7, got %i" % len(cff.buf)
                 assert cff.date.year == 2015
             elif arc.find_file("*.dat"):
                 cff = list(arc.values())[0]
                 assert cff.filename == "tést.dat", cff.filename
-                assert cff.contents == "tést123".encode(), cff.contents
-                assert len(cff.contents) == 8, "Expected 8, got %i" % len(cff.contents)
+                assert cff.buf == "tést123".encode(), cff.buf
+                assert len(cff.buf) == 8, "Expected 8, got %i" % len(cff.buf)
                 assert cff.date.year == 2015
             else:
                 cff = list(arc.values())[0]
                 assert cff.filename == "random.bin", cff.filename
-                assert len(cff.contents) == 0xFFFFF, "Expected 1 Mb, got %i" % len(
-                    cff.contents
-                )
+                assert len(cff.buf) == 0xFFFFF, "Expected 1 Mb, got %i" % len(cff.buf)
                 assert (
-                    hashlib.sha1(cff.contents).hexdigest()
+                    hashlib.sha1(cff.buf).hexdigest()
                     == "8497fe89c41871e3cbd7955e13321e056dfbd170"
                 ), "SHA hash incorrect"
                 assert cff.date.year == 2015
@@ -123,14 +121,14 @@ class TestInfParser(unittest.TestCase):
 
         # first example
         cff = CabFile()
-        cff.contents = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Hello, world!\\n");\r\n}\r\n'
+        cff.buf = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Hello, world!\\n");\r\n}\r\n'
         cff.date = datetime.date(1997, 3, 12)
         cff.time = datetime.time(11, 13, 52)
         arc["hello.c"] = cff
 
         # second example
         cff = CabFile()
-        cff.contents = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Welcome!\\n");\r\n}\r\n\r\n'
+        cff.buf = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Welcome!\\n");\r\n}\r\n\r\n'
         cff.date = datetime.date(1997, 3, 12)
         cff.time = datetime.time(11, 15, 14)
         arc["welcome.c"] = cff
@@ -187,7 +185,7 @@ class TestInfParser(unittest.TestCase):
             arc.parse(old)
             assert len(arc) == 2, len(arc)
             cff = arc.find_file("*.txt")
-            assert cff.contents == b"test123", cff.contents
+            assert cff.buf == b"test123", cff.buf
 
         # parse junk
         arc = CabArchive()
