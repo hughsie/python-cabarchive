@@ -55,6 +55,10 @@ class CabFile:
         self.is_name_utf8 = not _is_ascii(filename)
         self._filename = filename
 
+    @property
+    def _filename_win32(self) -> Optional[str]:
+        return self._filename.replace("/", "\\")
+
     def _attr_encode(self) -> int:
         """ Get attributes on the file """
         attr = 0x00

@@ -11,6 +11,7 @@ import os
 import struct
 import fnmatch
 import zlib
+import ntpath
 
 from typing import Optional, List
 
@@ -111,7 +112,7 @@ class CabArchive(dict):
                 "expected size %i" % (filename, len(f), vals[0])
             )
         if self._flattern:
-            filename = os.path.basename(filename)
+            filename = ntpath.basename(filename)
         self[filename] = f
 
         # return offset to next entry
@@ -314,7 +315,7 @@ class CabArchive(dict):
         archive_size += struct.calcsize(FMT_CFFOLDER)
         for fn in self:
             f = self[fn]
-            archive_size += struct.calcsize(FMT_CFFILE) + len(f.filename.encode()) + 1
+            archive_size += struct.calcsize(FMT_CFFILE) + len(f._filename_win32.encode()) + 1
         for chunk in chunks_zlib:
             archive_size += struct.calcsize(FMT_CFDATA) + len(chunk)
         offset = struct.calcsize(FMT_CFHEADER)
@@ -337,7 +338,7 @@ class CabArchive(dict):
         for fn in self:
             f = self[fn]
             offset += struct.calcsize(FMT_CFFILE)
-            offset += len(f.filename.encode()) + 1
+            offset += len(f._filename_win32.encode()) + 1
         data += struct.pack(
             FMT_CFFOLDER,
             offset,  # offset to CFDATA
@@ -358,7 +359,7 @@ class CabArchive(dict):
                 f._time_encode(),  # time
                 f._attr_encode(),
             )  # attribs
-            data += f.filename.encode() + b"\0"
+            data += f._filename_win32.encode() + b"\0"
             index_into += len(f)
 
         # create each CFDATA
