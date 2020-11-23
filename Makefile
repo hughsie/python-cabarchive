@@ -9,6 +9,7 @@ MYPY=$(VENV)/bin/mypy
 CODESPELL=$(VENV)/bin/codespell
 PIP=$(VENV)/bin/pip
 BLACK=$(VENV)/bin/black
+STUBGEN=$(VENV)/bin/stubgen
 
 setup:
 	virtualenv ./env
@@ -18,6 +19,9 @@ $(PYTEST):
 
 $(MYPY):
 	$(PIP) install mypy
+
+$(STUBGEN):
+	$(PIP) install stubgen
 
 $(BLACK):
 	$(PIP) install black
