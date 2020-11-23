@@ -21,11 +21,20 @@ class CabFile:
 
     """An object representing a file in a Cab archive """
 
-    def __init__(self, buf: Optional[bytes] = None, filename: Optional[str] = None):
+    def __init__(
+        self,
+        buf: Optional[bytes] = None,
+        filename: Optional[str] = None,
+        mtime: Optional[datetime.datetime] = None,
+    ):
         self.filename = filename
         self.buf = buf
-        self.date = datetime.date.today()
-        self.time = datetime.datetime.now().time()
+        if mtime:
+            self.date = mtime.date()
+            self.time = mtime.time()
+        else:
+            self.date = datetime.date.today()
+            self.time = datetime.datetime.now().time()
         self.is_readonly = False  # file is read-only
         self.is_hidden = False  # file is hidden
         self.is_system = False  # file is a system file
