@@ -109,10 +109,10 @@ class TestInfParser(unittest.TestCase):
                 assert cff.date.year == 2015
 
             # make sure we don't modify on roundtrip
-            compressed = False
+            compress = False
             if fn.find("compressed") != -1:
-                compressed = True
-            new = arc.save(compressed)
+                compress = True
+            new = arc.save(compress)
             _check_range(bytearray(new), bytearray(old))
 
         # create new archive

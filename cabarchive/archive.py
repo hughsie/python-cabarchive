@@ -286,7 +286,7 @@ class CabArchive(dict):
                 arr.append(self[fn])
         return arr
 
-    def save(self, compressed: bool = False) -> bytes:
+    def save(self, compress: bool = False) -> bytes:
         """ Returns cabinet file data """
 
         # create linear CFDATA block
@@ -298,13 +298,13 @@ class CabArchive(dict):
 
         # _chunkify and compress with a fixed size
         chunks = _chunkify(cfdata_linear, 0x8000)
-        if compressed:
+        if compress:
             chunks_zlib = []
             for chunk in chunks:
-                compress = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
+                compressobj = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
                 chunk_zlib = bytearray(b"CK")
-                chunk_zlib += compress.compress(chunk)
-                chunk_zlib += compress.flush()
+                chunk_zlib += compressobj.compress(chunk)
+                chunk_zlib += compressobj.flush()
                 chunks_zlib.append(chunk_zlib)
         else:
             chunks_zlib = chunks
@@ -342,7 +342,7 @@ class CabArchive(dict):
             FMT_CFFOLDER,
             offset,  # offset to CFDATA
             len(chunks),  # number of CFDATA blocks
-            compressed,
+            compress,
         )  # compression type
 
         # create each CFFILE
