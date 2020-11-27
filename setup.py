@@ -48,6 +48,9 @@ setup(
             "archive.pyi",
             "errors.pyi",
             "file.pyi",
+            "parser.pyi",
+            "utils.pyi",
+            "writer.pyi",
             "__init__.pyi",
         ]
     },

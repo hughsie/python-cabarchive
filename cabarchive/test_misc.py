@@ -19,7 +19,7 @@ import hashlib
 sys.path.append(os.path.realpath("."))
 
 from cabarchive import CabArchive, CabFile, CorruptionError
-from cabarchive.archive import _checksum_compute
+from cabarchive.utils import _checksum_compute
 
 
 def _check_archive(filename: str, expected_rc: int = 0) -> None:
