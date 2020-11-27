@@ -18,8 +18,8 @@ import hashlib
 # allows us to run this from the project root
 sys.path.append(os.path.realpath("."))
 
-from cabarchive import CabArchive, CabFile, CorruptionError, NotSupportedError
-from cabarchive.archive import _checksum_compute
+from cabarchive import CabArchive, CabFile, CorruptionError
+from cabarchive.utils import _checksum_compute
 
 
 def _check_archive(filename: str, expected_rc: int = 0) -> None:
@@ -66,7 +66,9 @@ class TestInfParser(unittest.TestCase):
         # make predictable
         dt_epoch = datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
         cabarchive["README.txt"] = CabFile(b"foofoofoofoofoofoofoofoo", mtime=dt_epoch)
-        cabarchive["firmware.bin"] = CabFile(b"barbarbarbarbarbarbarbar", mtime=dt_epoch)
+        cabarchive["firmware.bin"] = CabFile(
+            b"barbarbarbarbarbarbarbar", mtime=dt_epoch
+        )
         buf = cabarchive.save(compress=True)
         self.assertEqual(len(buf), 122)
         self.assertEqual(
@@ -202,13 +204,10 @@ class TestInfParser(unittest.TestCase):
             cff = arc.find_file("*.txt")
             assert cff.buf == b"test123", cff.buf
 
-        # parse junk
+        # parse multi folder compressed archive that saves zdict
         arc = CabArchive()
-        try:
-            with open("data/multi-folder-compressed.cab", "rb") as f:
-                arc.parse(f.read())
-        except NotSupportedError as _:
-            pass
+        with open("data/multi-folder-compressed.cab", "rb") as f:
+            arc.parse(f.read())
 
 
 if __name__ == "__main__":
