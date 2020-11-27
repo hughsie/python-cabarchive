@@ -28,6 +28,7 @@ class CabArchiveParser:
         self._folder_data: List[bytearray] = []
         self._buf: bytes = b""
         self._zdict: Optional[bytes] = None
+        self._rsvd_block: int = 0
 
     def parse_cffile(self, offset: int) -> int:
         """ Parse a CFFILE entry """
@@ -113,7 +114,7 @@ class CabArchiveParser:
             raise CorruptionError from e
         if not is_zlib and blob_comp != blob_uncomp:
             raise CorruptionError("Mismatched data %i != %i" % (blob_comp, blob_uncomp))
-        hdr_sz = struct.calcsize(fmt)
+        hdr_sz = struct.calcsize(fmt) + self._rsvd_block
         buf_cfdata = self._buf[offset + hdr_sz : offset + hdr_sz + blob_comp]
 
         # decompress Zlib data after removing *another* header...
@@ -215,14 +216,16 @@ class CabArchiveParser:
         # reserved sizes
         if flags & 0x0004:
             try:
-                (rsvd_hdr, rsvd_folder, unused_rsvd_block) = struct.unpack_from(
+                (rsvd_hdr, rsvd_folder, rsvd_block) = struct.unpack_from(
                     "<HBB", self._buf, offset
                 )
             except struct.error as e:
                 raise CorruptionError from e
             offset += 4 + rsvd_hdr
+            self._rsvd_block = rsvd_block
         else:
             rsvd_folder = 0
+            self._rsvd_block = 0
 
         # read this so we can do round-trip
         self.cfarchive.set_id = set_id
