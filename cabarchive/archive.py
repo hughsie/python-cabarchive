@@ -7,7 +7,6 @@
 #
 # pylint: disable=protected-access
 
-import os
 import struct
 import fnmatch
 import zlib
@@ -66,8 +65,8 @@ class CabArchive(dict):
 
         self.set_id: int = 0
         self._folder_data: List[bytearray] = []
-        self._is_multi_folder: bool = False
         self._flattern: bool = flattern
+        self._zdict: bytes = b""
 
         # load archive
         if buf:
@@ -88,7 +87,9 @@ class CabArchive(dict):
         fmt += "H"  # time
         fmt += "H"  # attribs
         try:
-            vals = struct.unpack_from(fmt, buf, offset)
+            (usize, uoffset, index, date, time, fattr) = struct.unpack_from(
+                fmt, buf, offset
+            )
         except struct.error as e:
             raise CorruptionError from e
 
@@ -102,17 +103,17 @@ class CabArchive(dict):
 
         # add file
         f = CabFile()
-        f._date_decode(vals[3])
-        f._time_decode(vals[4])
-        f._attr_decode(vals[5])
+        f._date_decode(date)
+        f._time_decode(time)
+        f._attr_decode(fattr)
         try:
-            f.buf = bytes(self._folder_data[vals[2]][vals[1] : vals[1] + vals[0]])
+            f.buf = bytes(self._folder_data[index][uoffset : uoffset + usize])
         except IndexError as e:
-            raise CorruptionError( "Failed to get buf for {}: {}".format(filename, vals)) from e
-        if len(f) != vals[0]:
+            raise CorruptionError("Failed to get buf for {}".format(filename)) from e
+        if len(f) != usize:
             raise CorruptionError(
                 "Corruption inside archive, %s is size %i but "
-                "expected size %i" % (filename, len(f), vals[0])
+                "expected size %i" % (filename, len(f), usize)
             )
         if self._flattern:
             filename = ntpath.basename(filename)
@@ -127,33 +128,25 @@ class CabArchive(dict):
         fmt += "H"  # number of CFDATA blocks
         fmt += "H"  # compression type
         try:
-            vals = struct.unpack_from(fmt, buf, offset)
+            (offset, ndatab, typecomp) = struct.unpack_from(fmt, buf, offset)
         except struct.error as e:
             raise CorruptionError from e
 
         # no data blocks?
-        if vals[1] == 0:
+        if ndatab == 0:
             raise CorruptionError("No CFDATA blocks")
 
         # no compression is supported
-        if vals[2] == 0:
+        if typecomp == 0:
             is_zlib = False
-        elif vals[2] == 1:
+        elif typecomp == 1:
             is_zlib = True
         else:
             raise NotSupportedError("Compression type not supported")
 
-        # not supported
-        if is_zlib and self._is_multi_folder:
-            raise NotSupportedError(
-                "Compression unsupported in multi-folder archive: "
-                "set FolderSizeThreshold=0 in the .ddf file"
-            )
-
         # parse CDATA
         self._folder_data.append(bytearray())
-        offset = vals[0]
-        for _ in range(vals[1]):
+        for _ in range(ndatab):
             offset += self._parse_cfdata(buf, idx, offset, is_zlib)
 
     def _parse_cfdata(self, buf: bytes, idx: int, offset: int, is_zlib: bool) -> int:
@@ -162,43 +155,48 @@ class CabArchive(dict):
         fmt += "H"  # compressed bytes
         fmt += "H"  # uncompressed bytes
         try:
-            vals = struct.unpack_from(fmt, buf, offset)
+            (checksum, blob_comp, blob_uncomp) = struct.unpack_from(fmt, buf, offset)
         except struct.error as e:
             raise CorruptionError from e
-        if not is_zlib and vals[1] != vals[2]:
-            raise CorruptionError("Mismatched data %i != %i" % (vals[1], vals[2]))
+        if not is_zlib and blob_comp != blob_uncomp:
+            raise CorruptionError("Mismatched data %i != %i" % (blob_comp, blob_uncomp))
         hdr_sz = struct.calcsize(fmt)
-        newbuf = buf[offset + hdr_sz : offset + hdr_sz + vals[1]]
+        buf_cfdata = buf[offset + hdr_sz : offset + hdr_sz + blob_comp]
 
         # decompress Zlib data after removing *another* header...
         if is_zlib:
-            if newbuf[:2] != b"CK":
+            if buf_cfdata[:2] != b"CK":
                 raise CorruptionError(
-                    "Compression header invalid {}".format(newbuf[:2].decode())
+                    "Compression header invalid {}".format(buf_cfdata[:2].decode())
                 )
-            decompress = zlib.decompressobj(-zlib.MAX_WBITS)
+            decompress = zlib.decompressobj(-zlib.MAX_WBITS, zdict=self._zdict)
             try:
-                buf = decompress.decompress(newbuf[2:])
+                buf = decompress.decompress(buf_cfdata[2:])
                 buf += decompress.flush()
             except zlib.error as e:
                 raise CorruptionError("Failed to decompress") from e
+            self._zdict = buf
         else:
-            buf = newbuf
+            buf = buf_cfdata
 
         # check checksum
-        if vals[0] != 0:
-            checksum = _checksum_compute(newbuf)
-            hdr = bytearray(struct.pack("<HH", len(newbuf), len(buf)))
-            checksum = _checksum_compute(hdr, checksum)
-            if checksum != vals[0]:
-                raise CorruptionError("Invalid checksum", offset, vals[0], checksum)
+        if checksum != 0:
+            checksum_actual = _checksum_compute(buf_cfdata)
+            hdr = bytearray(struct.pack("<HH", len(buf_cfdata), len(buf)))
+            checksum_actual = _checksum_compute(hdr, checksum_actual)
+            if checksum_actual != checksum:
+                raise CorruptionError(
+                    "Invalid checksum", offset, checksum, checksum_actual
+                )
 
-        assert len(buf) == vals[2]
+        assert len(buf) == blob_uncomp
         self._folder_data[idx] += buf
-        return vals[1] + hdr_sz
+        return blob_comp + hdr_sz
 
     def parse(self, buf: bytes) -> None:
         """ Parse .cab data """
+
+        offset: int = 0
 
         # read the file header
         fmt = "<4s"  # signature
@@ -213,63 +211,68 @@ class CabArchive(dict):
         fmt += "H"  # flags
         fmt += "H"  # setID
         fmt += "H"  # cnt of cabs in set
-        #        fmt += 'H'      # reserved cab size
-        #        fmt += 'B'      # reserved folder size
-        #        fmt += 'B'      # reserved block size
-        #        fmt += 'B'      # per-cabinet reserved area
         try:
-            vals = struct.unpack_from(fmt, buf, 0)
+            (
+                signature,
+                size,
+                off_cffile,
+                version_minor,
+                version_major,
+                nr_folders,
+                nr_files,
+                flags,
+                set_id,
+                idx_cabinet,
+            ) = struct.unpack_from(fmt, buf, 0)
         except struct.error as e:
             raise CorruptionError from e
-
-        # debugging
-        if os.getenv("PYTHON_CABARCHIVE_DEBUG"):
-            print("CFHEADER", vals)
+        offset += struct.calcsize(fmt)
 
         # check magic bytes
-        if vals[0] != b"MSCF":
+        if signature != b"MSCF":
             raise NotSupportedError("Data is not application/vnd.ms-cab-compressed")
 
         # check size matches
-        if vals[1] != len(buf):
+        if size != len(buf):
             raise CorruptionError("Cab file internal size does not match data")
 
         # check version
-        if vals[4] != 1 or vals[3] != 3:
+        if version_major != 1 or version_minor != 3:
             raise NotSupportedError(
-                "Version {}.{} not supported".format(vals[4], vals[3])
+                "Version {}.{} not supported".format(version_major, version_minor)
             )
 
         # chained cabs not supported
-        if vals[9] != 0:
+        if idx_cabinet != 0:
             raise NotSupportedError("Chained cab file not supported")
 
         # verify we actually have data
-        nr_files = vals[6]
         if nr_files == 0:
             raise CorruptionError("The cab file is empty")
 
         # verify we got complete data
-        off_cffile = vals[2]
         if off_cffile > len(buf):
             raise CorruptionError("Cab file corrupt")
 
-        # chained cabs not supported
-        if vals[7] != 0:
-            raise CorruptionError("Expected header flags to be cleared")
+        # reserved sizes
+        if flags & 0x0004:
+            try:
+                (rsvd_hdr, rsvd_folder, unused_rsvd_block) = struct.unpack_from(
+                    "<HBB", buf, offset
+                )
+            except struct.error as e:
+                raise CorruptionError from e
+            offset += 4 + rsvd_hdr
+        else:
+            rsvd_folder = 0
 
         # read this so we can do round-trip
-        self.set_id = vals[8]
-
-        # we don't support compressed folders in multi-folder archives
-        if vals[5] > 1:
-            self._is_multi_folder = True
+        self.set_id = set_id
 
         # parse CFFOLDER
-        offset = struct.calcsize(fmt)
-        for i in range(vals[5]):
+        for i in range(nr_folders):
             self._parse_cffolder(buf, i, offset)
-            offset += struct.calcsize(FMT_CFFOLDER)
+            offset += struct.calcsize(FMT_CFFOLDER) + rsvd_folder
 
         # parse CFFILEs
         for i in range(0, nr_files):
@@ -326,7 +329,9 @@ class CabArchive(dict):
         for f in cffiles:
             if not f._filename_win32:
                 continue
-            archive_size += struct.calcsize(FMT_CFFILE) + len(f._filename_win32.encode()) + 1
+            archive_size += (
+                struct.calcsize(FMT_CFFILE) + len(f._filename_win32.encode()) + 1
+            )
         for chunk in chunks_zlib:
             archive_size += struct.calcsize(FMT_CFDATA) + len(chunk)
         offset = struct.calcsize(FMT_CFHEADER)
