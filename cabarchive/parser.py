@@ -13,7 +13,7 @@ import zlib
 import ntpath
 
 from cabarchive.file import CabFile
-from cabarchive.utils import FMT_CFFOLDER, _checksum_compute
+from cabarchive.utils import FMT_CFFOLDER, FMT_CFHEADER_RESERVE, _checksum_compute
 from cabarchive.errors import CorruptionError, NotSupportedError
 
 if TYPE_CHECKING:
@@ -27,6 +27,7 @@ class CabArchiveParser:
         self.flattern: bool = flattern
         self._folder_data: List[bytearray] = []
         self._buf: bytes = b""
+        self._header_reserved: bytes = b""
         self._zdict: Optional[bytes] = None
         self._rsvd_block: int = 0
 
@@ -217,11 +218,13 @@ class CabArchiveParser:
         if flags & 0x0004:
             try:
                 (rsvd_hdr, rsvd_folder, rsvd_block) = struct.unpack_from(
-                    "<HBB", self._buf, offset
+                    FMT_CFHEADER_RESERVE, self._buf, offset
                 )
             except struct.error as e:
                 raise CorruptionError from e
-            offset += 4 + rsvd_hdr
+            offset += struct.calcsize(FMT_CFHEADER_RESERVE)
+            self._header_reserved = buf[offset : offset + rsvd_hdr]
+            offset += rsvd_hdr
             self._rsvd_block = rsvd_block
         else:
             rsvd_folder = 0

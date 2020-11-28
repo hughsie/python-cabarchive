@@ -10,6 +10,7 @@
 from typing import List
 
 FMT_CFHEADER = "<4sxxxxIxxxxIxxxxBBHHHHH"
+FMT_CFHEADER_RESERVE = "<HBB"
 FMT_CFFOLDER = "<IHH"
 FMT_CFFILE = "<IIHHHH"
 FMT_CFDATA = "<IHH"
