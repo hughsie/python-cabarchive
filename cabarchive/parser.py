@@ -19,6 +19,12 @@ from cabarchive.errors import CorruptionError, NotSupportedError
 if TYPE_CHECKING:
     from cabarchive.archive import CabArchive
 
+COMPRESSION_MASK_TYPE = 0x000F
+COMPRESSION_TYPE_NONE = 0x0000
+COMPRESSION_TYPE_MSZIP = 0x0001
+COMPRESSION_TYPE_QUANTUM = 0x0002
+COMPRESSION_TYPE_LZX = 0x0003
+
 
 class CabArchiveParser:
     def __init__(self, cfarchive: "CabArchive", flattern: bool = False):
@@ -82,6 +88,7 @@ class CabArchiveParser:
         fmt += "H"  # compression type
         try:
             (offset, ndatab, typecomp) = struct.unpack_from(fmt, self._buf, offset)
+            typecomp &= COMPRESSION_MASK_TYPE
         except struct.error as e:
             raise CorruptionError from e
 
@@ -90,12 +97,14 @@ class CabArchiveParser:
             raise CorruptionError("No CFDATA blocks")
 
         # no compression is supported
-        if typecomp == 0:
+        if typecomp == COMPRESSION_TYPE_NONE:
             is_zlib = False
-        elif typecomp == 1:
+        elif typecomp == COMPRESSION_TYPE_MSZIP:
             is_zlib = True
         else:
-            raise NotSupportedError("Compression type not supported")
+            raise NotSupportedError(
+                "Compression type 0x{:x} not supported".format(typecomp)
+            )
 
         # parse CDATA
         self._folder_data.append(bytearray())
