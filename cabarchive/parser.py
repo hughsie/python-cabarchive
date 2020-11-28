@@ -118,6 +118,18 @@ class CabArchiveParser:
         hdr_sz = struct.calcsize(fmt) + self._rsvd_block
         buf_cfdata = self._buf[offset + hdr_sz : offset + hdr_sz + blob_comp]
 
+        # verify checksum
+        if checksum != 0:
+            checksum_actual = _checksum_compute(buf_cfdata)
+            hdr = bytearray(struct.pack("<HH", blob_comp, blob_uncomp))
+            checksum_actual = _checksum_compute(hdr, checksum_actual)
+            if checksum_actual != checksum:
+                raise CorruptionError(
+                    "Invalid checksum at {:x}, expected {:x}, got {:x}".format(
+                        offset, checksum, checksum_actual
+                    )
+                )
+
         # decompress Zlib data after removing *another* header...
         if is_zlib:
             if buf_cfdata[:2] != b"CK":
@@ -134,16 +146,6 @@ class CabArchiveParser:
             self._zdict = buf
         else:
             buf = buf_cfdata
-
-        # check checksum
-        if checksum != 0:
-            checksum_actual = _checksum_compute(buf_cfdata)
-            hdr = bytearray(struct.pack("<HH", len(buf_cfdata), len(buf)))
-            checksum_actual = _checksum_compute(hdr, checksum_actual)
-            if checksum_actual != checksum:
-                raise CorruptionError(
-                    "Invalid checksum", offset, checksum, checksum_actual
-                )
 
         assert len(buf) == blob_uncomp
         self._folder_data[idx] += buf
