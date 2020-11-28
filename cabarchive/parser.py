@@ -195,8 +195,12 @@ class CabArchiveParser:
             raise NotSupportedError("Data is not application/vnd.ms-cab-compressed")
 
         # check size matches
-        if size != len(self._buf):
-            raise CorruptionError("Cab file internal size does not match data")
+        if size > len(self._buf):
+            raise CorruptionError(
+                "File size 0x{:x} does not match header 0x{:x} (delta 0x{:x})".format(
+                    len(self._buf), size, len(self._buf) - size
+                )
+            )
 
         # check version
         if version_major != 1 or version_minor != 3:
