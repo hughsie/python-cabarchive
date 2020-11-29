@@ -22,12 +22,6 @@ from cabarchive import CabArchive, CabFile, CorruptionError
 from cabarchive.utils import _checksum_compute
 
 
-def _check_archive(filename: str, expected_rc: int = 0) -> None:
-    argv = ["cabextract", "--test", filename]
-    rc = subprocess.call(argv)
-    assert rc == expected_rc, "invalid return code: %r" % rc
-
-
 def _check_range(data: bytes, expected: bytes) -> None:
     assert data
     assert expected
@@ -60,7 +54,7 @@ class TestInfParser(unittest.TestCase):
         csum = _checksum_compute(data)
         print("profile checksum: %fms" % ((time.time() - start) * 1000))
 
-    def test_compressed(self):
+    def test_create_compressed(self):
         cabarchive = CabArchive()
 
         # make predictable
@@ -78,57 +72,109 @@ class TestInfParser(unittest.TestCase):
     def test_values(self):
 
         # parse junk
-        arc = CabArchive()
+        with self.assertRaises(CorruptionError):
+            CabArchive().parse(b"hello")
         try:
-            arc.parse(b"hello")
-        except CorruptionError:
+            self.assertEqual(subprocess.call(["cabextract", "--test", "hello"]), 1)
+        except FileNotFoundError as _:
             pass
 
-        # parse junk
-        _check_archive("hello", expected_rc=1)
+    def test_simple(self):
 
-        # parse test files
-        for fn in [
-            "data/simple.cab",
-            "data/compressed.cab",
-            "data/utf8.cab",
-            "data/large.cab",
-            "data/large-compressed.cab",
-        ]:
-            arc = CabArchive()
-            print("Parsing:", fn)
-            with open(fn, "rb") as f:
-                old = f.read()
-                arc.parse(old)
-            assert len(arc) == 1
-            if arc.find_file("*.txt"):
-                cff = list(arc.values())[0]
-                self.assertEqual(cff.filename, "test.txt")
-                assert cff.buf == b"test123", cff.buf
-                assert len(cff.buf) == 7, "Expected 7, got %i" % len(cff.buf)
-                assert cff.date.year == 2015
-            elif arc.find_file("*.dat"):
-                cff = list(arc.values())[0]
-                assert cff.filename == "tést.dat", cff.filename
-                assert cff.buf == "tést123".encode(), cff.buf
-                assert len(cff.buf) == 8, "Expected 8, got %i" % len(cff.buf)
-                assert cff.date.year == 2015
-            else:
-                cff = list(arc.values())[0]
-                assert cff.filename == "random.bin", cff.filename
-                assert len(cff.buf) == 0xFFFFF, "Expected 1 Mb, got %i" % len(cff.buf)
-                assert (
-                    hashlib.sha1(cff.buf).hexdigest()
-                    == "8497fe89c41871e3cbd7955e13321e056dfbd170"
-                ), "SHA hash incorrect"
-                assert cff.date.year == 2015
+        with open("data/simple.cab", "rb") as f:
+            old = f.read()
+        arc = CabArchive()
+        arc.parse(old)
+        cff = arc["test.txt"]
+        self.assertEqual(cff.filename, "test.txt")
+        self.assertEqual(cff.buf, b"test123")
+        self.assertEqual(len(cff.buf), 7)
+        self.assertEqual(cff.date.year, 2015)
+        _check_range(arc.save(), old)
 
-            # make sure we don't modify on roundtrip
-            compress = False
-            if fn.find("compressed") != -1:
-                compress = True
-            new = arc.save(compress)
-            _check_range(bytearray(new), bytearray(old))
+    def test_compressed(self):
+
+        with open("data/compressed.cab", "rb") as f:
+            old = f.read()
+        arc = CabArchive()
+        arc.parse(old)
+        cff = arc.find_file("*.txt")
+        self.assertEqual(cff.buf, b"test123")
+        _check_range(arc.save(compress=True), old)
+
+    def test_utf8(self):
+
+        with open("data/utf8.cab", "rb") as f:
+            old = f.read()
+        arc = CabArchive()
+        arc.parse(old)
+        cff = arc.find_file("tést.dat")
+        self.assertEqual(cff.filename, "tést.dat")
+        self.assertEqual(cff.buf, "tést123".encode())
+        self.assertEqual(len(cff.buf), 8)
+        self.assertEqual(cff.date.year, 2015)
+        _check_range(arc.save(), old)
+
+    def test_large(self):
+
+        with open("data/large.cab", "rb") as f:
+            old = f.read()
+        arc = CabArchive()
+        arc.parse(old)
+        cff = arc.find_files("random.bin")[0]
+        self.assertEqual(len(cff.buf), 0xFFFFF)
+        self.assertEqual(
+            hashlib.sha1(cff.buf).hexdigest(),
+            "8497fe89c41871e3cbd7955e13321e056dfbd170",
+        )
+        _check_range(arc.save(), old)
+
+    def test_large_compressed(self):
+
+        with open("data/large-compressed.cab", "rb") as f:
+            old = f.read()
+        arc = CabArchive()
+        arc.parse(old)
+        cff = arc.find_files("random.bin")[0]
+        self.assertEqual(len(cff.buf), 0xFFFFF)
+        self.assertEqual(
+            hashlib.sha1(cff.buf).hexdigest(),
+            "8497fe89c41871e3cbd7955e13321e056dfbd170",
+        )
+        _check_range(arc.save(compress=True), old)
+
+    def test_multi_folder(self):
+
+        # open a folder with multiple folders
+        arc = CabArchive()
+        with open("data/multi-folder.cab", "rb") as f:
+            arc.parse(f.read())
+        self.assertEqual(len(arc), 2)
+        cff = arc.find_file("*.txt")
+        self.assertEqual(cff.buf, b"test123")
+
+    def test_ddf_fixed(self):
+
+        arc = CabArchive()
+        with open("data/ddf-fixed.cab", "rb") as f:
+            arc.parse(f.read())
+        self.assertEqual(len(arc), 2)
+        cff = arc.find_file("*.txt")
+        self.assertEqual(cff.buf, b"test123")
+
+    def test_zdict(self):
+
+        # parse multi folder compressed archive that saves zdict
+        arc = CabArchive()
+        with open("data/multi-folder-compressed.cab", "rb") as f:
+            arc.parse(f.read())
+        cff = arc["test\\example.jpg"]
+        self.assertEqual(
+            hashlib.sha1(cff.buf).hexdigest(),
+            "60880cf6f2a93616ba8d965bfbca72a56fb736bb",
+        )
+
+    def test_create(self):
 
         # create new archive
         arc = CabArchive()
@@ -136,7 +182,10 @@ class TestInfParser(unittest.TestCase):
 
         # first example
         cff = CabFile()
-        cff.buf = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Hello, world!\\n");\r\n}\r\n'
+        cff.buf = (
+            b"#include <stdio.h>\r\n\r\nvoid main(void)\r\n"
+            b'{\r\n    printf("Hello, world!\\n");\r\n}\r\n'
+        )
         cff.date = datetime.date(1997, 3, 12)
         cff.time = datetime.time(11, 13, 52)
         cff.is_arch = True
@@ -144,7 +193,10 @@ class TestInfParser(unittest.TestCase):
 
         # second example
         cff = CabFile()
-        cff.buf = b'#include <stdio.h>\r\n\r\nvoid main(void)\r\n{\r\n    printf("Welcome!\\n");\r\n}\r\n\r\n'
+        cff.buf = (
+            b"#include <stdio.h>\r\n\r\nvoid main(void)\r\n"
+            b'{\r\n    printf("Welcome!\\n");\r\n}\r\n\r\n'
+        )
         cff.date = datetime.date(1997, 3, 12)
         cff.time = datetime.time(11, 15, 14)
         cff.is_arch = True
@@ -175,9 +227,12 @@ class TestInfParser(unittest.TestCase):
         _check_range(bytearray(data), bytearray(expected))
 
         # use cabextract to test validity
-        argv = ["cabextract", "--test", "/tmp/test.cab"]
-        rc = subprocess.call(argv)
-        assert rc == 0
+        try:
+            self.assertEqual(
+                subprocess.call(["cabextract", "--test", "/tmp/test.cab"]), 0
+            )
+        except FileNotFoundError as _:
+            pass
 
         # check we can parse what we just created
         arc = CabArchive()
@@ -192,22 +247,12 @@ class TestInfParser(unittest.TestCase):
             f.write(arc.save(True))
 
         # use cabextract to test validity
-        _check_archive("/tmp/test.cab")
-
-        # open a folder with multiple folders
-        for fn in ["data/multi-folder.cab", "data/ddf-fixed.cab"]:
-            arc = CabArchive()
-            print("Parsing:", fn)
-            old = open(fn, "rb").read()
-            arc.parse(old)
-            assert len(arc) == 2, len(arc)
-            cff = arc.find_file("*.txt")
-            assert cff.buf == b"test123", cff.buf
-
-        # parse multi folder compressed archive that saves zdict
-        arc = CabArchive()
-        with open("data/multi-folder-compressed.cab", "rb") as f:
-            arc.parse(f.read())
+        try:
+            self.assertEqual(
+                subprocess.call(["cabextract", "--test", "/tmp/test.cab"]), 0
+            )
+        except FileNotFoundError as _:
+            pass
 
 
 if __name__ == "__main__":
