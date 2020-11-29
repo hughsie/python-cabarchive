@@ -87,8 +87,8 @@ class CabArchiveParser:
         fmt += "H"  # number of CFDATA blocks
         fmt += "H"  # compression type
         try:
-            (offset, ndatab, typecomp) = struct.unpack_from(fmt, self._buf, offset)
-            typecomp &= COMPRESSION_MASK_TYPE
+            (offset, ndatab, compression) = struct.unpack_from(fmt, self._buf, offset)
+            compression &= COMPRESSION_MASK_TYPE
         except struct.error as e:
             raise CorruptionError from e
 
@@ -97,21 +97,17 @@ class CabArchiveParser:
             raise CorruptionError("No CFDATA blocks")
 
         # no compression is supported
-        if typecomp == COMPRESSION_TYPE_NONE:
-            is_zlib = False
-        elif typecomp == COMPRESSION_TYPE_MSZIP:
-            is_zlib = True
-        else:
+        if compression not in [COMPRESSION_TYPE_NONE, COMPRESSION_TYPE_MSZIP]:
             raise NotSupportedError(
-                "Compression type 0x{:x} not supported".format(typecomp)
+                "Compression type 0x{:x} not supported".format(compression)
             )
 
         # parse CDATA
         self._folder_data.append(bytearray())
         for _ in range(ndatab):
-            offset += self.parse_cfdata(idx, offset, is_zlib)
+            offset += self.parse_cfdata(idx, offset, compression)
 
-    def parse_cfdata(self, idx: int, offset: int, is_zlib: bool) -> int:
+    def parse_cfdata(self, idx: int, offset: int, compression: int) -> int:
         """ Parse a CFDATA entry """
         fmt = "<I"  # checksum
         fmt += "H"  # compressed bytes
@@ -122,7 +118,7 @@ class CabArchiveParser:
             )
         except struct.error as e:
             raise CorruptionError from e
-        if not is_zlib and blob_comp != blob_uncomp:
+        if compression == COMPRESSION_TYPE_NONE and blob_comp != blob_uncomp:
             raise CorruptionError("Mismatched data %i != %i" % (blob_comp, blob_uncomp))
         hdr_sz = struct.calcsize(fmt) + self._rsvd_block
         buf_cfdata = self._buf[offset + hdr_sz : offset + hdr_sz + blob_comp]
@@ -140,7 +136,7 @@ class CabArchiveParser:
                 )
 
         # decompress Zlib data after removing *another* header...
-        if is_zlib:
+        if compression == COMPRESSION_TYPE_MSZIP:
             if buf_cfdata[:2] != b"CK":
                 raise CorruptionError(
                     "Compression header invalid {}".format(buf_cfdata[:2].decode())
