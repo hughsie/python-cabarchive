@@ -11,7 +11,7 @@ See also: https://msdn.microsoft.com/en-us/library/bb417343.aspx
 
 setup(
     name="cabarchive",
-    version="0.2.2",
+    version="0.2.3",
     license="LGPL-2.1-or-later",
     description="A pure-python library for creating and extracting cab files",
     long_description=long_desc,
