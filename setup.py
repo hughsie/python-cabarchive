@@ -4,14 +4,6 @@ from setuptools import setup
 
 # note: this is a repeat of the README, to evolve, good enough for now.
 long_desc = """
-If you want to parse Microsoft Cabinet files in Python you probably
-should just install gcab, and use the GObjectIntrospection bindings
-for that. GCab is a much better library than this and handles many more
-kinds of archive.
-
-If GCab is not available to you (e.g. you're trying to run in an
-OpenShift instance on RHEL 6.2), this project might be somewhat useful.
-
 Contributors welcome, either adding new functionality or fixing bugs.
 
 See also: https://msdn.microsoft.com/en-us/library/bb417343.aspx
@@ -19,7 +11,7 @@ See also: https://msdn.microsoft.com/en-us/library/bb417343.aspx
 
 setup(
     name="cabarchive",
-    version="0.2.1",
+    version="0.2.2",
     license="LGPL-2.1-or-later",
     description="A pure-python library for creating and extracting cab files",
     long_description=long_desc,
