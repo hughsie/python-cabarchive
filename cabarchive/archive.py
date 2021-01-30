@@ -17,13 +17,49 @@ from cabarchive.writer import CabArchiveWriter
 
 
 class CabArchive(dict):
-    """An object representing a Microsoft Cab archive """
+    """This instance allows parsing or writing a MS Cabinet archive.
+
+    You can treat the CabArchive instance like a dictionary when reading
+    and writing archives.
+
+    For instance, loading an archive:
+
+    .. code-block:: python
+
+        with open("test.cab", "rb") as f:
+            arc = CabArchive(f.read())
+        cff = arc["test.txt"]
+        print("filename", cff.filename)     # "test.txt"
+        print("contents", cff.buf)          # b"test123"
+        print("created", cff.date.year)     # 2015
+        for fn in arc:
+            print(fn)                       # "test.txt"
+
+    ...or creating and saving an archive:
+
+    .. code-block:: python
+
+        arc = CabArchive()
+        arc["test.txt"] = CabFile("test123".encode())
+        with open("test.cab", "wb") as f:
+            f.write(arc.save())
+    """
 
     def __init__(self, buf: Optional[bytes] = None, flattern: bool = False):
-        """ Parses a MS Cabinet archive """
+        """Creates a CabArchive instance.
+
+        Args:
+            self: A CabArchive instance.
+            buf: Binary blob loaded from disk.
+            flattern: Disregard archive directory structure wen loading.
+
+        Raises:
+            CorruptionError: The cab file was invalid or corrupt.
+            NotSupportedError: The format was not supported, e.g. unknown compression.
+        """
         dict.__init__(self)
 
-        self.set_id: int = 0
+        self.set_id: int = 0  #: The "Set ID" used for multi-file archives
 
         # load archive
         if buf:
@@ -36,18 +72,42 @@ class CabArchive(dict):
         dict.__setitem__(self, key, val)
 
     def parse(self, buf: bytes) -> None:
-        """ Parse .cab data """
+        """Parse .cab binary data
+
+        Args:
+            self: A CabArchive instance.
+            bytes: Binary blob loaded from disk.
+
+        Raises:
+            CorruptionError: The cab file was invalid or corrupt.
+            NotSupportedError: The format was not supported, e.g. unknown compression.
+
+        """
         CabArchiveParser(self).parse(buf)
 
     def find_file(self, glob: str) -> Optional[CabFile]:
-        """ Gets a file from the archive using a glob """
+        """Gets a file from the archive using a glob.
+
+        Args:
+            self: A CabArchive instance.
+            glob: File glob, e.g. ``*.txt``
+        Returns:
+            The first CabFile that matches the filename glob, or None.
+        """
         for fn in self:
             if fnmatch.fnmatch(fn, glob):
                 return self[fn]
         return None
 
     def find_files(self, glob: str) -> List[CabFile]:
-        """ Gets files from the archive using a glob """
+        """Gets files from the archive using a glob.
+
+        Args:
+            self: A CabArchive instance.
+            glob: File glob, e.g. ``*.txt``
+        Returns:
+            All CabFile object that matches the filename glob, or None.
+        """
         arr = []
         for fn in self:
             if fnmatch.fnmatch(fn, glob):
@@ -55,7 +115,15 @@ class CabArchive(dict):
         return arr
 
     def save(self, compress: bool = False, sort: bool = True) -> bytes:
-        """ Returns cabinet file data """
+        """Returns cabinet file data, optionally compressed
+
+        Args:
+            self: A CabArchive instance.
+            compress: If the binary data should be compressed.
+            sort: If the file lists should be sorted in a predictable order
+        Returns:
+            The blob of memory that can be written to disk.
+        """
         return CabArchiveWriter(self, compress=compress, sort=sort).write()
 
     def __repr__(self) -> str:

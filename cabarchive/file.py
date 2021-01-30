@@ -19,7 +19,18 @@ def _is_ascii(text: str) -> bool:
 
 class CabFile:
 
-    """An object representing a file in a Cab archive """
+    """An object representing a file in a Cab archive
+
+    Any number of CabFile instances can be stored in a CabArchive.
+    A new instance can be created with just the data bytes or with an additional
+    ``mtime``. If the modification time is not set then the current date and time
+    is used, which may be unhelpful if you require a reproducable builds.
+
+    .. code-block:: python
+
+        cff = CabFile(b"test123")
+
+    """
 
     def __init__(
         self,
@@ -27,21 +38,21 @@ class CabFile:
         filename: Optional[str] = None,
         mtime: Optional[datetime.datetime] = None,
     ):
-        self.filename = filename
-        self.buf = buf
-        self.date: Optional[datetime.date]
-        self.time: Optional[datetime.time]
+        self.filename = filename  #: filename to use in the archive
+        self.buf = buf  #: bytes to use for the file contents
+        self.date: Optional[datetime.date]  #: date the file was created
+        self.time: Optional[datetime.time]  #: time the file was created
         if mtime:
             self.date = mtime.date()
             self.time = mtime.time()
         else:
             self.date = datetime.date.today()
             self.time = datetime.datetime.now().time()
-        self.is_readonly = False  # file is read-only
-        self.is_hidden = False  # file is hidden
-        self.is_system = False  # file is a system file
-        self.is_arch = False  # file modified since last backup
-        self.is_exec = False  # file is executable
+        self.is_readonly = False  #: set if file is read-only
+        self.is_hidden = False  #: set if file is hidden
+        self.is_system = False  #: set if file is a system file
+        self.is_arch = False  #: set if file modified since last backup
+        self.is_exec = False  #: set if file is executable
 
     def __len__(self) -> int:
         if not self.buf:
