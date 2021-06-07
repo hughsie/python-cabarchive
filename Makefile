@@ -27,8 +27,8 @@ $(BLACK):
 	$(PIP) install black
 
 check: $(PYTEST) $(MYPY)
-	$(MYPY) .
-	$(PYTEST) .
+	$(MYPY) cabarchive
+	$(PYTEST) cabarchive
 	$(PYLINT) --rcfile pylintrc cabarchive/*.py *.py
 
 blacken:
