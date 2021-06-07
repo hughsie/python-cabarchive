@@ -31,7 +31,7 @@ check: $(PYTEST) $(MYPY)
 	$(PYTEST) cabarchive
 	$(PYLINT) --rcfile pylintrc cabarchive/*.py *.py
 
-blacken:
+blacken: $(BLACK)
 	find cabarchive -name '*.py' -exec $(BLACK) {} \;
 
 pkg: $(STUBGEN)

@@ -11,7 +11,7 @@ from typing import Optional
 
 
 def _is_ascii(text: str) -> bool:
-    """ Check if a string is ASCII only """
+    """Check if a string is ASCII only"""
     if not text:
         return False
     return all(ord(c) < 128 for c in text)
@@ -73,7 +73,7 @@ class CabFile:
         return self._filename.replace("/", "\\")
 
     def _attr_encode(self) -> int:
-        """ Get attributes on the file """
+        """Get attributes on the file"""
         attr = 0x00
         if self.is_readonly:
             attr += 0x01
@@ -90,7 +90,7 @@ class CabFile:
         return attr
 
     def _attr_decode(self, attr: int) -> None:
-        """ Set attributes on the file """
+        """Set attributes on the file"""
         self.is_readonly = bool(attr & 0x01)
         self.is_hidden = bool(attr & 0x02)
         self.is_system = bool(attr & 0x04)
@@ -99,7 +99,7 @@ class CabFile:
         self.is_name_utf8 = bool(attr & 0x80)
 
     def _date_decode(self, val: int) -> None:
-        """ Decode the MSCAB 32-bit date format """
+        """Decode the MSCAB 32-bit date format"""
         try:
             self.date = datetime.date(
                 1980 + ((val & 0xFE00) >> 9), (val & 0x01E0) >> 5, val & 0x001F
@@ -108,7 +108,7 @@ class CabFile:
             self.date = None
 
     def _time_decode(self, val: int) -> None:
-        """ Decode the MSCAB 32-bit time format """
+        """Decode the MSCAB 32-bit time format"""
         try:
             self.time = datetime.time(
                 (val & 0xF800) >> 11, (val & 0x07E0) >> 5, (val & 0x001F) * 2
@@ -117,13 +117,13 @@ class CabFile:
             self.time = None
 
     def _date_encode(self) -> int:
-        """ Encode the MSCAB 32-bit date format """
+        """Encode the MSCAB 32-bit date format"""
         if not self.date or self.date.year < 1980:
             return 0
         return ((self.date.year - 1980) << 9) + (self.date.month << 5) + self.date.day
 
     def _time_encode(self) -> int:
-        """ Encode the MSCAB 32-bit time format """
+        """Encode the MSCAB 32-bit time format"""
         if not self.time:
             return 0
         return (

@@ -38,7 +38,7 @@ class CabArchiveParser:
         self._rsvd_block: int = 0
 
     def parse_cffile(self, offset: int) -> int:
-        """ Parse a CFFILE entry """
+        """Parse a CFFILE entry"""
         fmt = "<I"  # uncompressed size
         fmt += "I"  # uncompressed offset of this file in the folder
         fmt += "H"  # index into the CFFOLDER area
@@ -82,7 +82,7 @@ class CabArchiveParser:
         return 16 + i + 1
 
     def parse_cffolder(self, idx: int, offset: int) -> None:
-        """ Parse a CFFOLDER entry """
+        """Parse a CFFOLDER entry"""
         fmt = "<I"  # offset to CFDATA
         fmt += "H"  # number of CFDATA blocks
         fmt += "H"  # compression type
@@ -108,7 +108,7 @@ class CabArchiveParser:
             offset += self.parse_cfdata(idx, offset, compression)
 
     def parse_cfdata(self, idx: int, offset: int, compression: int) -> int:
-        """ Parse a CFDATA entry """
+        """Parse a CFDATA entry"""
         fmt = "<I"  # checksum
         fmt += "H"  # compressed bytes
         fmt += "H"  # uncompressed bytes
