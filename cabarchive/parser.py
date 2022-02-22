@@ -98,6 +98,10 @@ class CabArchiveParser:
 
         # no compression is supported
         if compression not in [COMPRESSION_TYPE_NONE, COMPRESSION_TYPE_MSZIP]:
+            if compression == COMPRESSION_TYPE_QUANTUM:
+                raise NotSupportedError("Quantum compression not supported")
+            if compression == COMPRESSION_TYPE_LZX:
+                raise NotSupportedError("LZX compression not supported")
             raise NotSupportedError(
                 "Compression type 0x{:x} not supported".format(compression)
             )
