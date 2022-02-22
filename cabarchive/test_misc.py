@@ -49,9 +49,9 @@ class TestInfParser(unittest.TestCase):
         self.assertEqual(csum, 0x6C6C6507)
 
         # measure speed
-        data = open("data/random.bin", "rb").read()
         start = time.time()
-        csum = _checksum_compute(data)
+        with open("data/random.bin", "rb") as f:
+            csum = _checksum_compute(f.read())
         print("profile checksum: %fms" % ((time.time() - start) * 1000))
 
     def test_create_compressed(self):
