@@ -68,7 +68,7 @@ class CabArchiveParser:
         try:
             f.buf = bytes(self._folder_data[index][uoffset : uoffset + usize])
         except IndexError as e:
-            raise CorruptionError("Failed to get buf for {}".format(filename)) from e
+            raise CorruptionError(f"Failed to get buf for {filename}") from e
         if len(f) != usize:
             raise CorruptionError(
                 "Corruption inside archive, %s is size %i but "
@@ -103,7 +103,7 @@ class CabArchiveParser:
             if compression == COMPRESSION_TYPE_LZX:
                 raise NotSupportedError("LZX compression not supported")
             raise NotSupportedError(
-                "Compression type 0x{:x} not supported".format(compression)
+                f"Compression type 0x{compression:x} not supported"
             )
 
         # parse CDATA
@@ -143,7 +143,7 @@ class CabArchiveParser:
         if compression == COMPRESSION_TYPE_MSZIP:
             if buf_cfdata[:2] != b"CK":
                 raise CorruptionError(
-                    "Compression header invalid {}".format(buf_cfdata[:2].decode())
+                    f"Compression header invalid {buf_cfdata[:2].decode()}"
                 )
             assert self._zdict is not None
             decompress = zlib.decompressobj(-zlib.MAX_WBITS, zdict=self._zdict)
@@ -214,7 +214,7 @@ class CabArchiveParser:
         # check version
         if version_major != 1 or version_minor != 3:
             raise NotSupportedError(
-                "Version {}.{} not supported".format(version_major, version_minor)
+                f"Version {version_major}.{version_minor} not supported"
             )
 
         # chained cabs not supported

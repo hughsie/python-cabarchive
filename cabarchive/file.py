@@ -131,4 +131,4 @@ class CabFile:
         )
 
     def __repr__(self) -> str:
-        return "CabFile({}:{:x})".format(self.filename, len(self))
+        return f"CabFile({self.filename}:{len(self):x})"

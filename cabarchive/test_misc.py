@@ -27,11 +27,11 @@ def _check_range(data: bytes, expected: bytes) -> None:
     assert expected
     failures = 0
     if len(data) != len(expected):
-        print("different sizes, got %i expected %i" % (len(data), len(expected)))
+        print(f"different sizes, got {len(data)} expected {len(expected)}")
         failures += 1
     for i in range(len(data)):
         if data[i] != expected[i]:
-            print("@0x%02x got 0x%02x expected 0x%02x" % (i, data[i], expected[i]))
+            print(f"@0x{i:02x} got 0x{data[i]:02x} expected 0x{expected[i]:02x}")
             failures += 1
             if failures > 10:
                 print("More than 10 failures, giving up...")
@@ -52,7 +52,7 @@ class TestInfParser(unittest.TestCase):
         start = time.time()
         with open("data/random.bin", "rb") as f:
             csum = _checksum_compute(f.read())
-        print("profile checksum: %fms" % ((time.time() - start) * 1000))
+        print(f"profile checksum: {(time.time() - start) * 1000:f}ms")
 
     def test_create_compressed(self):
         cabarchive = CabArchive()
