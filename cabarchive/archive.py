@@ -127,4 +127,4 @@ class CabArchive(dict):
         return CabArchiveWriter(self, compress=compress, sort=sort).write()
 
     def __repr__(self) -> str:
-        return "CabArchive({})".format([str(self[cabfile]) for cabfile in self])
+        return f"CabArchive({[str(self[cabfile]) for cabfile in self]})"

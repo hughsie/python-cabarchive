@@ -21,20 +21,19 @@ from cabarchive import CabArchive, CabFile, NotSupportedError
 
 def repack(arc: CabArchive, arg: str) -> None:
     with tempfile.TemporaryDirectory("cabarchive") as tmpdir:
-        print("Extracting to {}".format(tmpdir))
+        print(f"Extracting to {tmpdir}")
         subprocess.call(["cabextract", "--fix", "--quiet", "--directory", tmpdir, arg])
         for fn in glob.iglob(os.path.join(tmpdir, "**"), recursive=True):
             try:
                 with open(fn, "rb") as f:
                     fn_noprefix = fn[len(tmpdir) + 1 :]
-                    print("Adding: {}".format(fn_noprefix))
+                    print(f"Adding: {fn_noprefix}")
                     arc[fn_noprefix] = CabFile(f.read())
             except IsADirectoryError as _:
                 pass
 
 
 def main():
-
     parser = argparse.ArgumentParser(description="Process cabinet archives.")
     parser.add_argument(
         "--decompress",
@@ -73,10 +72,10 @@ def main():
                 arc.parse(f.read())
         except NotSupportedError as e:
             if not args.autorepack:
-                print("Failed to parse: {}; perhaps try --autorepack".format(str(e)))
+                print(f"Failed to parse: {str(e)}; perhaps try --autorepack")
                 return 1
             repack(arc, arg)
-        print("Parsing {}:".format(arg))
+        print(f"Parsing {arg}:")
         if args.info:
             for fn in arc:
                 print(fn)
@@ -85,7 +84,7 @@ def main():
                 path = os.path.join(args.outdir, fn)
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 with open(path, "wb") as f:
-                    print("Writing {}:".format(fn))
+                    print(f"Writing {fn}:")
                     f.write(arc[fn].buf)
 
     return 0

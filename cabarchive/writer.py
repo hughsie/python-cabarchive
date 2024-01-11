@@ -34,7 +34,6 @@ class CabArchiveWriter:
         self.sort: bool = sort
 
     def write(self) -> bytes:
-
         # sort files before export
         cffiles: List[CabFile] = []
         if self.sort:
