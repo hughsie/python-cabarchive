@@ -41,7 +41,6 @@ def _check_range(data: bytes, expected: bytes) -> None:
 
 class TestInfParser(unittest.TestCase):
     def test_checksums(self):
-
         # test checksum function
         csum = _checksum_compute(b"hello123")
         self.assertEqual(csum, 0x5F5E5407)
@@ -70,7 +69,6 @@ class TestInfParser(unittest.TestCase):
         )
 
     def test_values(self):
-
         # parse junk
         with self.assertRaises(CorruptionError):
             CabArchive().parse(b"hello")
@@ -80,7 +78,6 @@ class TestInfParser(unittest.TestCase):
             pass
 
     def test_simple(self):
-
         with open("data/simple.cab", "rb") as f:
             old = f.read()
         arc = CabArchive()
@@ -93,7 +90,6 @@ class TestInfParser(unittest.TestCase):
         _check_range(arc.save(), old)
 
     def test_compressed(self):
-
         with open("data/compressed.cab", "rb") as f:
             old = f.read()
         arc = CabArchive()
@@ -103,7 +99,6 @@ class TestInfParser(unittest.TestCase):
         _check_range(arc.save(compress=True), old)
 
     def test_utf8(self):
-
         with open("data/utf8.cab", "rb") as f:
             old = f.read()
         arc = CabArchive()
@@ -116,7 +111,6 @@ class TestInfParser(unittest.TestCase):
         _check_range(arc.save(), old)
 
     def test_large(self):
-
         with open("data/large.cab", "rb") as f:
             old = f.read()
         arc = CabArchive()
@@ -130,7 +124,6 @@ class TestInfParser(unittest.TestCase):
         _check_range(arc.save(), old)
 
     def test_large_compressed(self):
-
         with open("data/large-compressed.cab", "rb") as f:
             old = f.read()
         arc = CabArchive()
@@ -144,7 +137,6 @@ class TestInfParser(unittest.TestCase):
         _check_range(arc.save(compress=True), old)
 
     def test_multi_folder(self):
-
         # open a folder with multiple folders
         arc = CabArchive()
         with open("data/multi-folder.cab", "rb") as f:
@@ -154,7 +146,6 @@ class TestInfParser(unittest.TestCase):
         self.assertEqual(cff.buf, b"test123")
 
     def test_ddf_fixed(self):
-
         arc = CabArchive()
         with open("data/ddf-fixed.cab", "rb") as f:
             arc.parse(f.read())
@@ -163,7 +154,6 @@ class TestInfParser(unittest.TestCase):
         self.assertEqual(cff.buf, b"test123")
 
     def test_zdict(self):
-
         # parse multi folder compressed archive that saves zdict
         arc = CabArchive()
         with open("data/multi-folder-compressed.cab", "rb") as f:
@@ -175,7 +165,6 @@ class TestInfParser(unittest.TestCase):
         )
 
     def test_create(self):
-
         # create new archive
         arc = CabArchive()
         arc.set_id = 0x0622

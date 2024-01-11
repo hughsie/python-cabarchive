@@ -28,7 +28,6 @@ COMPRESSION_TYPE_LZX = 0x0003
 
 class CabArchiveParser:
     def __init__(self, cfarchive: "CabArchive", flattern: bool = False):
-
         self.cfarchive: "CabArchive" = cfarchive
         self.flattern: bool = flattern
         self._folder_data: List[bytearray] = []
@@ -102,9 +101,7 @@ class CabArchiveParser:
                 raise NotSupportedError("Quantum compression not supported")
             if compression == COMPRESSION_TYPE_LZX:
                 raise NotSupportedError("LZX compression not supported")
-            raise NotSupportedError(
-                f"Compression type 0x{compression:x} not supported"
-            )
+            raise NotSupportedError(f"Compression type 0x{compression:x} not supported")
 
         # parse CDATA
         self._folder_data.append(bytearray())
@@ -161,7 +158,6 @@ class CabArchiveParser:
         return blob_comp + hdr_sz
 
     def parse(self, buf: bytes) -> None:
-
         # used as internal state
         self._buf = buf
         if self._zdict is None:

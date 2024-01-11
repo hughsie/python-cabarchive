@@ -34,7 +34,6 @@ def repack(arc: CabArchive, arg: str) -> None:
 
 
 def main():
-
     parser = argparse.ArgumentParser(description="Process cabinet archives.")
     parser.add_argument(
         "--decompress",
