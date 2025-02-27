@@ -126,5 +126,10 @@ class CabArchive(dict):
         """
         return CabArchiveWriter(self, compress=compress, sort=sort).write()
 
+    @property
+    def size(self) -> int:
+        """Returns cabinet uncompressed data size"""
+        return sum(len(cffile) for cffile in self.values())
+
     def __repr__(self) -> str:
         return f"CabArchive({[str(self[cabfile]) for cabfile in self]})"
