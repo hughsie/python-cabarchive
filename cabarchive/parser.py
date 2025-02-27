@@ -30,7 +30,7 @@ class CabArchiveParser:
     def __init__(self, cfarchive: "CabArchive", flattern: bool = False):
         self.cfarchive: "CabArchive" = cfarchive
         self.flattern: bool = flattern
-        self._folder_data: List[bytearray] = []
+        self._folder_data: List[bytes] = []
         self._buf: bytes = b""
         self._header_reserved: bytes = b""
         self._zdict: Optional[bytes] = None
@@ -127,7 +127,7 @@ class CabArchiveParser:
         # verify checksum
         if checksum != 0:
             checksum_actual = _checksum_compute(buf_cfdata)
-            hdr = bytearray(struct.pack("<HH", blob_comp, blob_uncomp))
+            hdr = struct.pack("<HH", blob_comp, blob_uncomp)
             checksum_actual = _checksum_compute(hdr, checksum_actual)
             if checksum_actual != checksum:
                 raise CorruptionError(
