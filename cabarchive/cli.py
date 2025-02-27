@@ -13,7 +13,7 @@ import argparse
 
 sys.path.append(os.path.realpath("."))
 
-from cabarchive import CabArchive, NotSupportedError
+from cabarchive import CabArchive, CabFile, NotSupportedError
 
 
 def main():
@@ -22,6 +22,12 @@ def main():
         "--decompress",
         action="store_true",
         help="decompress the archives",
+        default=False,
+    )
+    parser.add_argument(
+        "--create",
+        action="store_true",
+        help="create an archive",
         default=False,
     )
     parser.add_argument(
@@ -42,25 +48,37 @@ def main():
         return 1
 
     args, argv = parser.parse_known_args()
-    for arg in argv:
-        arc = CabArchive()
-        try:
-            with open(arg, "rb") as f:
-                arc.parse(f.read())
-        except NotSupportedError as e:
-            print(f"Failed to parse: {str(e)}")
-            return 1
-        print(f"Parsing {arg}:")
-        if args.info:
-            for fn in arc:
-                print(fn)
-        if args.decompress:
+    if args.decompress:
+        for fn in argv:
+            arc = CabArchive()
+            try:
+                with open(fn, "rb") as f:
+                    arc.parse(f.read())
+            except NotSupportedError as e:
+                print(f"Failed to parse: {str(e)}")
+                return 1
+            print(f"Parsing {fn}:")
+            if args.info:
+                for fn in arc:
+                    print(fn)
             for fn in arc:
                 path = os.path.join(args.outdir, fn)
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 with open(path, "wb") as f:
                     print(f"Writing {fn}:")
                     f.write(arc[fn].buf)
+    elif args.create:
+        arc = CabArchive()
+        try:
+            print(f"Creating {argv[0]}:")
+        except IndexError:
+            print("Expected: ARCHIVE [FILE]...")
+            return 1
+        for fn in argv[1:]:
+            with open(fn, "rb") as f:
+                arc[os.path.basename(fn)] = CabFile(buf=f.read())
+        with open(argv[0], "wb") as f:
+            f.write(arc.save())
 
     return 0
 
