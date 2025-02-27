@@ -18,7 +18,6 @@ def _is_ascii(text: str) -> bool:
 
 
 class CabFile:
-
     """An object representing a file in a Cab archive
 
     Any number of CabFile instances can be stored in a CabArchive.
