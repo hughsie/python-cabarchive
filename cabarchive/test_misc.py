@@ -213,7 +213,7 @@ class TestInfParser(unittest.TestCase):
             b"\x20\x70\x72\x69\x6E\x74\x66\x28\x22\x57\x65\x6C\x63\x6F\x6D\x65"
             b"\x21\x5C\x6E\x22\x29\x3B\x0D\x0A\x7D\x0D\x0A\x0D\x0A"
         )
-        _check_range(bytearray(data), bytearray(expected))
+        _check_range(data, expected)
 
         # use cabextract to test validity
         try:

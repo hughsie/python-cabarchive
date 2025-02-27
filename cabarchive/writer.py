@@ -54,7 +54,7 @@ class CabArchiveWriter:
             chunks_zlib = []
             for chunk in chunks:
                 compressobj = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
-                chunk_zlib = bytearray(b"CK")
+                chunk_zlib = b"CK"
                 chunk_zlib += compressobj.compress(chunk)
                 chunk_zlib += compressobj.flush()
                 chunks_zlib.append(chunk_zlib)
@@ -126,7 +126,7 @@ class CabArchiveWriter:
             # first do the 'checksum' on the data, then the partial
             # header. slightly crazy, but anyway
             checksum = _checksum_compute(chunk_zlib)
-            hdr = bytearray(struct.pack("<HH", len(chunk_zlib), len(chunk)))
+            hdr = struct.pack("<HH", len(chunk_zlib), len(chunk))
             checksum = _checksum_compute(hdr, checksum)
             data += struct.pack(
                 FMT_CFDATA,
@@ -136,5 +136,5 @@ class CabArchiveWriter:
             )  # uncompressed bytes
             data += chunk_zlib
 
-        # return bytearray
+        # success
         return data
