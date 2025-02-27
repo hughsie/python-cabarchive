@@ -7,6 +7,8 @@
 #
 # pylint: disable=protected-access,too-few-public-methods
 
+import struct
+
 from typing import List
 
 FMT_CFHEADER = "<4sxxxxIxxxxIxxxxBBHHHHH"
@@ -16,33 +18,29 @@ FMT_CFFILE = "<IIHHHH"
 FMT_CFDATA = "<IHH"
 
 
-def _chunkify(arr: bytes, size: int) -> List[bytearray]:
+def _chunkify(arr: bytes, size: int) -> List[bytes]:
     """Split up a bytestream into chunks"""
     arrs = []
     for i in range(0, len(arr), size):
-        chunk = bytearray(arr[i : i + size])
-        arrs.append(chunk)
+        arrs.append(arr[i : i + size])
     return arrs
 
 
-def _checksum_compute(content: bytes, seed: int = 0) -> int:
+def _checksum_compute(buf: bytes, seed: int = 0) -> int:
     """Compute the MS cabinet checksum"""
-    csum = seed
-    chunks = _chunkify(content, 4)
-    for chunk in chunks:
-        if len(chunk) == 4:
-            ul = chunk[0]
-            ul |= chunk[1] << 8
-            ul |= chunk[2] << 16
-            ul |= chunk[3] << 24
-        else:
+    csum: int = seed
+    for offset in range(0, len(buf), 4):
+        try:
+            (ul,) = struct.unpack_from("<I", buf, offset)
+        except struct.error:
+            left: int = len(buf) - offset
             # WTF: I can only assume this is a typo from the original
             # author of the cabinet file specification
-            if len(chunk) == 3:
-                ul = (chunk[0] << 16) | (chunk[1] << 8) | chunk[2]
-            elif len(chunk) == 2:
-                ul = (chunk[0] << 8) | chunk[1]
-            elif len(chunk) == 1:
-                ul = chunk[0]
+            if left == 3:
+                ul = (buf[offset + 0] << 16) | (buf[offset + 1] << 8) | buf[offset + 2]
+            elif left == 2:
+                ul = (buf[offset + 0] << 8) | buf[offset + 1]
+            elif left == 1:
+                ul = buf[offset + 0]
         csum ^= ul
     return csum
