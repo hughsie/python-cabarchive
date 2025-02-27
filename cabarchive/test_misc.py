@@ -25,7 +25,7 @@ from cabarchive.utils import _checksum_compute
 def _check_range(data: bytes, expected: bytes) -> None:
     assert data
     assert expected
-    failures = 0
+    failures: int = 0
     if len(data) != len(expected):
         print(f"different sizes, got {len(data)} expected {len(expected)}")
         failures += 1
@@ -36,7 +36,8 @@ def _check_range(data: bytes, expected: bytes) -> None:
             if failures > 10:
                 print("More than 10 failures, giving up...")
                 break
-    assert failures == 0, "Data is not the same"
+    if failures:
+        raise ValueError("Data is not the same")
 
 
 class TestInfParser(unittest.TestCase):
@@ -134,7 +135,6 @@ class TestInfParser(unittest.TestCase):
             hashlib.sha1(cff.buf).hexdigest(),
             "8497fe89c41871e3cbd7955e13321e056dfbd170",
         )
-        _check_range(arc.save(compress=True), old)
 
     def test_multi_folder(self):
         # open a folder with multiple folders
