@@ -43,10 +43,13 @@ class CabArchiveWriter:
             cffiles.extend(self.cfarchive.values())
 
         # create linear CFDATA block
-        cfdata_linear = bytearray()
-        for f in cffiles:
-            if f.buf:
-                cfdata_linear += f.buf
+        if len(cffiles) > 1:
+            cfdata_linear = bytes()
+            for f in cffiles:
+                if f.buf:
+                    cfdata_linear += f.buf
+        else:
+            cfdata_linear = cffiles[0].buf or bytes()
 
         # _chunkify and compress with a fixed size
         chunks = _chunkify(cfdata_linear, 0x8000)
