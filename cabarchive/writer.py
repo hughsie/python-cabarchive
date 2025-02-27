@@ -97,7 +97,7 @@ class CabArchiveWriter:
         data += struct.pack(
             FMT_CFFOLDER,
             offset,  # offset to CFDATA
-            len(chunks),  # number of CFDATA blocks
+            min(len(chunks), 0xFFFF),  # number of CFDATA blocks
             self.compress,
         )  # compression type
 

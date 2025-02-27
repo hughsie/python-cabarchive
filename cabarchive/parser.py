@@ -35,6 +35,7 @@ class CabArchiveParser:
         self._header_reserved: bytes = b""
         self._zdict: Optional[bytes] = None
         self._rsvd_block: int = 0
+        self._ndatabsz: int = 0
 
     def parse_cffile(self, offset: int) -> int:
         """Parse a CFFILE entry"""
@@ -103,10 +104,14 @@ class CabArchiveParser:
                 raise NotSupportedError("LZX compression not supported")
             raise NotSupportedError(f"Compression type 0x{compression:x} not supported")
 
-        # parse CDATA
-        self._folder_data.append(bytearray())
-        for _ in range(ndatab):
-            offset += self.parse_cfdata(idx, offset, compression)
+        # parse CDATA, either using the stream offset or the per-spec CFFOLDER.ndatab
+        self._folder_data.append(bytes())
+        if self._ndatabsz:
+            while offset < self._ndatabsz:
+                offset += self.parse_cfdata(idx, offset, compression)
+        else:
+            for _ in range(ndatab):
+                offset += self.parse_cfdata(idx, offset, compression)
 
     def parse_cfdata(self, idx: int, offset: int, compression: int) -> int:
         """Parse a CFDATA entry"""
@@ -243,6 +248,10 @@ class CabArchiveParser:
 
         # read this so we can do round-trip
         self.cfarchive.set_id = set_id
+
+        # if the only folder is >= 2GB then CFFOLDER.ndatab will overflow
+        if len(self._buf) >= 0x8000 * 0xFFFF and nr_folders == 1:
+            self._ndatabsz = len(self._buf)
 
         # parse CFFOLDER
         for i in range(nr_folders):
