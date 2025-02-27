@@ -10,27 +10,10 @@
 import sys
 import os
 import argparse
-import tempfile
-import subprocess
-import glob
 
 sys.path.append(os.path.realpath("."))
 
-from cabarchive import CabArchive, CabFile, NotSupportedError
-
-
-def repack(arc: CabArchive, arg: str) -> None:
-    with tempfile.TemporaryDirectory("cabarchive") as tmpdir:
-        print(f"Extracting to {tmpdir}")
-        subprocess.call(["cabextract", "--fix", "--quiet", "--directory", tmpdir, arg])
-        for fn in glob.iglob(os.path.join(tmpdir, "**"), recursive=True):
-            try:
-                with open(fn, "rb") as f:
-                    fn_noprefix = fn[len(tmpdir) + 1 :]
-                    print(f"Adding: {fn_noprefix}")
-                    arc[fn_noprefix] = CabFile(f.read())
-            except IsADirectoryError as _:
-                pass
+from cabarchive import CabArchive, NotSupportedError
 
 
 def main():
@@ -39,12 +22,6 @@ def main():
         "--decompress",
         action="store_true",
         help="decompress the archives",
-        default=False,
-    )
-    parser.add_argument(
-        "--autorepack",
-        action="store_true",
-        help="Repack using cabextract when required",
         default=False,
     )
     parser.add_argument(
@@ -71,10 +48,8 @@ def main():
             with open(arg, "rb") as f:
                 arc.parse(f.read())
         except NotSupportedError as e:
-            if not args.autorepack:
-                print(f"Failed to parse: {str(e)}; perhaps try --autorepack")
-                return 1
-            repack(arc, arg)
+            print(f"Failed to parse: {str(e)}")
+            return 1
         print(f"Parsing {arg}:")
         if args.info:
             for fn in arc:
