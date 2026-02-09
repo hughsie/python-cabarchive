@@ -29,18 +29,29 @@ def _chunkify(arr: bytes, size: int) -> List[bytes]:
 def _checksum_compute(buf: bytes, seed: int = 0) -> int:
     """Compute the MS cabinet checksum"""
     csum: int = seed
-    for offset in range(0, len(buf), 4):
-        try:
-            (ul,) = struct.unpack_from("<I", buf, offset)
-        except struct.error:
-            left: int = len(buf) - offset
-            # WTF: I can only assume this is a typo from the original
-            # author of the cabinet file specification
-            if left == 3:
-                ul = (buf[offset + 0] << 16) | (buf[offset + 1] << 8) | buf[offset + 2]
-            elif left == 2:
-                ul = (buf[offset + 0] << 8) | buf[offset + 1]
-            elif left == 1:
-                ul = buf[offset + 0]
-        csum ^= ul
+    n_words = len(buf) // 4
+
+    # process complete 4-byte words in chunks to minimise struct calls
+    chunk_sz = 256
+    pos = 0
+    while pos + chunk_sz <= n_words:
+        words = struct.unpack_from(f"<{chunk_sz}I", buf, pos << 2)
+        for ul in words:
+            csum ^= ul
+        pos += chunk_sz
+    if pos < n_words:
+        rest = n_words - pos
+        words = struct.unpack_from(f"<{rest}I", buf, pos << 2)
+        for ul in words:
+            csum ^= ul
+
+    # tail: 1–3 bytes (spec quirk)
+    tail = n_words << 2
+    left = len(buf) - tail
+    if left == 3:
+        csum ^= (buf[tail] << 16) | (buf[tail + 1] << 8) | buf[tail + 2]
+    elif left == 2:
+        csum ^= (buf[tail] << 8) | buf[tail + 1]
+    elif left == 1:
+        csum ^= buf[tail]
     return csum
