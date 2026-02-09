@@ -37,6 +37,12 @@ def main():
         default=True,
     )
     parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Decompress and compress a file to profiling",
+        default=True,
+    )
+    parser.add_argument(
         "--outdir",
         type=str,
         help="Specify the output directory for decompression",
@@ -79,6 +85,22 @@ def main():
                 arc[os.path.basename(fn)] = CabFile(buf=f.read())
         with open(argv[0], "wb") as f:
             f.write(arc.save())
+    elif args.profile:
+        import cProfile
+        for fn in argv:
+            arc = CabArchive()
+            print(f"Parsing {fn}:")
+            with open(fn, "rb") as f:
+                with cProfile.Profile() as pr:
+                    arc.parse(f.read())
+                pr.print_stats()
+            print(f"Showing {fn}:")
+            for fn in arc:
+                print(fn)
+            print(f"Writing {fn}:")
+            with cProfile.Profile() as pr:
+                _ = arc.save()
+                pr.print_stats()
 
     return 0
 
