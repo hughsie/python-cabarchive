@@ -37,7 +37,7 @@ class CabFile:
         filename: Optional[str] = None,
         mtime: Optional[datetime.datetime] = None,
     ):
-        self.filename = filename  #: filename to use in the archive
+        self._filename: Optional[str] = filename  #: filename to use in the archive
         self.buf = buf  #: bytes to use for the file contents
         self.date: Optional[datetime.date]  #: date the file was created
         self.time: Optional[datetime.time]  #: time the file was created
@@ -64,11 +64,14 @@ class CabFile:
 
     @filename.setter
     def filename(self, filename: str) -> None:
-        self.is_name_utf8 = not _is_ascii(filename)
+        if filename:
+            self.is_name_utf8 = not _is_ascii(filename)
         self._filename = filename
 
     @property
     def _filename_win32(self) -> Optional[str]:
+        if not self._filename:
+            return None
         return self._filename.replace("/", "\\")
 
     def _attr_encode(self) -> int:
