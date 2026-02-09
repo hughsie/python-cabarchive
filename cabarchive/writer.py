@@ -60,7 +60,7 @@ class CabArchiveWriter:
                 chunk_zlib = b"CK"
                 chunk_zlib += compressobj.compress(chunk)
                 chunk_zlib += compressobj.flush()
-                chunks_zlib.append(chunk_zlib)
+                chunks_zlib.append(memoryview(chunk_zlib))
         else:
             chunks_zlib = chunks
 

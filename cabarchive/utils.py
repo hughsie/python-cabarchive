@@ -18,11 +18,12 @@ FMT_CFFILE = "<IIHHHH"
 FMT_CFDATA = "<IHH"
 
 
-def _chunkify(arr: bytes, size: int) -> List[bytes]:
+def _chunkify(arr: bytes, size: int) -> List[memoryview]:
     """Split up a bytestream into chunks"""
     arrs = []
+    arr_mv = memoryview(arr)
     for i in range(0, len(arr), size):
-        arrs.append(arr[i : i + size])
+        arrs.append(arr_mv[i : i + size])
     return arrs
 
 
