@@ -151,7 +151,8 @@ class CabArchiveParser:
                 raise CorruptionError(
                     f"Compression header invalid {buf_cfdata[:2].tobytes().decode()}"
                 )
-            assert self._zdict is not None
+            if self._zdict is None:
+                raise CorruptionError("failed to set up decompressor")
             decompress = zlib.decompressobj(-zlib.MAX_WBITS, zdict=self._zdict)
             try:
                 buf = decompress.decompress(buf_cfdata[2:])
@@ -161,8 +162,12 @@ class CabArchiveParser:
             self._zdict = buf
         else:
             buf = bytes(buf_cfdata)
-
-        assert len(buf) == blob_uncomp
+        if len(buf) != blob_uncomp:
+            raise CorruptionError(
+                "decompressor result invalid, expected {:x}, got {:x}".format(
+                    blob_uncomp, len(buf)
+                )
+            )
         return (hdr_sz + blob_comp, buf)
 
     def parse(self, buf: bytes) -> None:
