@@ -34,22 +34,15 @@ class CabArchiveWriter:
         self.sort: bool = sort
 
     def write(self) -> bytes:
-        # sort files before export
+
+        # sort files before creating a linear CFDATA block
         cffiles: List[CabFile] = []
         if self.sort:
             for fn in sorted(self.cfarchive.keys()):
                 cffiles.append(self.cfarchive[fn])
         else:
             cffiles.extend(self.cfarchive.values())
-
-        # create linear CFDATA block
-        if len(cffiles) > 1:
-            cfdata_linear = bytes()
-            for f in cffiles:
-                if f.buf:
-                    cfdata_linear += f.buf
-        else:
-            cfdata_linear = cffiles[0].buf or bytes()
+        cfdata_linear = b"".join([f.buf for f in cffiles if f.buf])
 
         # _chunkify and compress with a fixed size
         chunks = _chunkify(cfdata_linear, 0x8000)
