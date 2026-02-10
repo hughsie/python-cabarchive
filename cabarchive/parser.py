@@ -82,7 +82,7 @@ class CabArchiveParser:
         # return offset to next entry
         return 16 + i + 1
 
-    def parse_cffolder(self, idx: int, offset: int) -> None:
+    def parse_cffolder(self, offset: int) -> None:
         """Parse a CFFOLDER entry"""
         try:
             (offset, ndatab, compression) = struct.unpack_from(
@@ -104,17 +104,22 @@ class CabArchiveParser:
                 raise NotSupportedError("LZX compression not supported")
             raise NotSupportedError(f"Compression type 0x{compression:x} not supported")
 
-        # parse CDATA, either using the stream offset or the per-spec CFFOLDER.ndatab
-        self._folder_data.append(bytes())
+        # parse CDATA, collect chunks then join once
+        chunks: list[bytes] = []
         if self._ndatabsz:
             while offset < self._ndatabsz:
-                offset += self.parse_cfdata(idx, offset, compression)
+                advance, buf = self.parse_cfdata(offset, compression)
+                chunks.append(buf)
+                offset += advance
         else:
             for _ in range(ndatab):
-                offset += self.parse_cfdata(idx, offset, compression)
+                advance, buf = self.parse_cfdata(offset, compression)
+                chunks.append(buf)
+                offset += advance
+        self._folder_data.append(b"".join(chunks))
 
-    def parse_cfdata(self, idx: int, offset: int, compression: int) -> int:
-        """Parse a CFDATA entry"""
+    def parse_cfdata(self, offset: int, compression: int) -> tuple[int, bytes]:
+        """Parse a CFDATA entry. Returns both offset and decompressed data."""
         try:
             (checksum, blob_comp, blob_uncomp) = struct.unpack_from(
                 FMT_CFDATA, self._buf, offset
@@ -155,11 +160,10 @@ class CabArchiveParser:
                 raise CorruptionError("Failed to decompress") from e
             self._zdict = buf
         else:
-            buf = buf_cfdata
+            buf = bytes(buf_cfdata)
 
         assert len(buf) == blob_uncomp
-        self._folder_data[idx] += buf
-        return blob_comp + hdr_sz
+        return (hdr_sz + blob_comp, buf)
 
     def parse(self, buf: bytes) -> None:
         # used as internal state
@@ -241,12 +245,12 @@ class CabArchiveParser:
             self._ndatabsz = len(self._buf)
 
         # parse CFFOLDER
-        for i in range(nr_folders):
-            self.parse_cffolder(i, offset)
+        for _ in range(nr_folders):
+            self.parse_cffolder(offset)
             offset += struct.calcsize(FMT_CFFOLDER) + rsvd_folder
 
         # parse CFFILEs
-        for i in range(0, nr_files):
+        for _ in range(nr_files):
             off_cffile += self.parse_cffile(off_cffile)
 
         # allow reuse
