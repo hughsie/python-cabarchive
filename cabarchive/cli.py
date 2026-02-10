@@ -87,6 +87,7 @@ def main():
             f.write(arc.save())
     elif args.profile:
         import cProfile
+
         for fn in argv:
             arc = CabArchive()
             print(f"Parsing {fn}:")
