@@ -70,7 +70,12 @@ class CabArchiveWriter:
             archive_size += struct.calcsize(FMT_CFDATA) + len(chunk)
         offset = struct.calcsize(FMT_CFHEADER)
         offset += struct.calcsize(FMT_CFFOLDER)
-        data = struct.pack(
+
+        # it is much faster to join this into a linear block once to avoid re-allocating the buffer
+        data_blocks: list[bytes] = []
+
+        # create header
+        st = struct.pack(
             FMT_CFHEADER,
             b"MSCF",  # signature
             archive_size,  # complete size
@@ -83,6 +88,7 @@ class CabArchiveWriter:
             self.cfarchive.set_id,  # setID
             0,
         )  # cnt of cabs in set
+        data_blocks.append(st)
 
         # create folder
         for f in cffiles:
@@ -90,19 +96,20 @@ class CabArchiveWriter:
                 continue
             offset += struct.calcsize(FMT_CFFILE)
             offset += len(f._filename_win32.encode()) + 1
-        data += struct.pack(
+        st = struct.pack(
             FMT_CFFOLDER,
             offset,  # offset to CFDATA
             min(len(chunks), 0xFFFF),  # number of CFDATA blocks
             self.compress,
         )  # compression type
+        data_blocks.append(st)
 
         # create each CFFILE
         index_into = 0
         for f in cffiles:
             if not f._filename_win32:
                 continue
-            data += struct.pack(
+            st = struct.pack(
                 FMT_CFFILE,
                 len(f),  # uncompressed size
                 index_into,  # uncompressed offset
@@ -111,7 +118,8 @@ class CabArchiveWriter:
                 f._time_encode(),  # time
                 f._attr_encode(),
             )  # attribs
-            data += f._filename_win32.encode() + b"\0"
+            data_blocks.append(st)
+            data_blocks.append(f._filename_win32.encode() + b"\0")
             index_into += len(f)
 
         # create each CFDATA
@@ -124,13 +132,14 @@ class CabArchiveWriter:
             checksum = _checksum_compute(chunk_zlib)
             hdr = struct.pack("<HH", len(chunk_zlib), len(chunk))
             checksum = _checksum_compute(hdr, checksum)
-            data += struct.pack(
+            st = struct.pack(
                 FMT_CFDATA,
                 checksum,  # checksum
                 len(chunk_zlib),  # compressed bytes
                 len(chunk),
             )  # uncompressed bytes
-            data += chunk_zlib
+            data_blocks.append(st)
+            data_blocks.append(chunk_zlib)
 
         # success
-        return data
+        return b"".join(data_blocks)
