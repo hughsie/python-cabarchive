@@ -13,7 +13,14 @@ import zlib
 import ntpath
 
 from cabarchive.file import CabFile
-from cabarchive.utils import FMT_CFFOLDER, FMT_CFHEADER_RESERVE, _checksum_compute
+from cabarchive.utils import (
+    FMT_CFHEADER,
+    FMT_CFHEADER_RESERVE,
+    FMT_CFFOLDER,
+    FMT_CFFILE,
+    FMT_CFDATA,
+    _checksum_compute,
+)
 from cabarchive.errors import CorruptionError, NotSupportedError
 
 if TYPE_CHECKING:
@@ -39,21 +46,15 @@ class CabArchiveParser:
 
     def parse_cffile(self, offset: int) -> int:
         """Parse a CFFILE entry"""
-        fmt = "<I"  # uncompressed size
-        fmt += "I"  # uncompressed offset of this file in the folder
-        fmt += "H"  # index into the CFFOLDER area
-        fmt += "H"  # date
-        fmt += "H"  # time
-        fmt += "H"  # attribs
         try:
             (usize, uoffset, index, date, time, fattr) = struct.unpack_from(
-                fmt, self._buf, offset
+                FMT_CFFILE, self._buf, offset
             )
         except struct.error as e:
             raise CorruptionError from e
 
         # parse filename
-        offset += struct.calcsize(fmt)
+        offset += struct.calcsize(FMT_CFFILE)
         filename = ""
         for i in range(0, 255):
             if self._buf[offset + i] == 0x0:
@@ -83,11 +84,10 @@ class CabArchiveParser:
 
     def parse_cffolder(self, idx: int, offset: int) -> None:
         """Parse a CFFOLDER entry"""
-        fmt = "<I"  # offset to CFDATA
-        fmt += "H"  # number of CFDATA blocks
-        fmt += "H"  # compression type
         try:
-            (offset, ndatab, compression) = struct.unpack_from(fmt, self._buf, offset)
+            (offset, ndatab, compression) = struct.unpack_from(
+                FMT_CFFOLDER, self._buf, offset
+            )
             compression &= COMPRESSION_MASK_TYPE
         except struct.error as e:
             raise CorruptionError from e
@@ -115,18 +115,15 @@ class CabArchiveParser:
 
     def parse_cfdata(self, idx: int, offset: int, compression: int) -> int:
         """Parse a CFDATA entry"""
-        fmt = "<I"  # checksum
-        fmt += "H"  # compressed bytes
-        fmt += "H"  # uncompressed bytes
         try:
             (checksum, blob_comp, blob_uncomp) = struct.unpack_from(
-                fmt, self._buf, offset
+                FMT_CFDATA, self._buf, offset
             )
         except struct.error as e:
             raise CorruptionError from e
         if compression == COMPRESSION_TYPE_NONE and blob_comp != blob_uncomp:
             raise CorruptionError("Mismatched data %i != %i" % (blob_comp, blob_uncomp))
-        hdr_sz = struct.calcsize(fmt) + self._rsvd_block
+        hdr_sz = struct.calcsize(FMT_CFDATA) + self._rsvd_block
         buf_cfdata = self._buf[offset + hdr_sz : offset + hdr_sz + blob_comp]
 
         # verify checksum
@@ -171,18 +168,6 @@ class CabArchiveParser:
         offset: int = 0
 
         # read the file header
-        fmt = "<4s"  # signature
-        fmt += "xxxx"  # reserved1
-        fmt += "I"  # size
-        fmt += "xxxx"  # reserved2
-        fmt += "I"  # offset to CFFILE
-        fmt += "xxxx"  # reserved3
-        fmt += "BB"  # version minor, major
-        fmt += "H"  # no of CFFOLDERs
-        fmt += "H"  # no of CFFILEs
-        fmt += "H"  # flags
-        fmt += "H"  # setID
-        fmt += "H"  # cnt of cabs in set
         try:
             (
                 signature,
@@ -195,10 +180,10 @@ class CabArchiveParser:
                 flags,
                 set_id,
                 idx_cabinet,
-            ) = struct.unpack_from(fmt, self._buf, 0)
+            ) = struct.unpack_from(FMT_CFHEADER, self._buf, 0)
         except struct.error as e:
             raise CorruptionError from e
-        offset += struct.calcsize(fmt)
+        offset += struct.calcsize(FMT_CFHEADER)
 
         # check magic bytes
         if signature != b"MSCF":
