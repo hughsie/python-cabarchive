@@ -124,7 +124,9 @@ class CabArchiveParser:
         if compression == COMPRESSION_TYPE_NONE and blob_comp != blob_uncomp:
             raise CorruptionError("Mismatched data %i != %i" % (blob_comp, blob_uncomp))
         hdr_sz = struct.calcsize(FMT_CFDATA) + self._rsvd_block
-        buf_cfdata = self._buf[offset + hdr_sz : offset + hdr_sz + blob_comp]
+        buf_cfdata = memoryview(self._buf)[
+            offset + hdr_sz : offset + hdr_sz + blob_comp
+        ]
 
         # verify checksum
         if checksum != 0:
@@ -142,7 +144,7 @@ class CabArchiveParser:
         if compression == COMPRESSION_TYPE_MSZIP:
             if buf_cfdata[:2] != b"CK":
                 raise CorruptionError(
-                    f"Compression header invalid {buf_cfdata[:2].decode()}"
+                    f"Compression header invalid {buf_cfdata[:2].tobytes().decode()}"
                 )
             assert self._zdict is not None
             decompress = zlib.decompressobj(-zlib.MAX_WBITS, zdict=self._zdict)
